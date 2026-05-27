@@ -1,0 +1,30 @@
+{
+  "display": {
+    "icon": {
+      "item": "mistborn_metal_arts:lerasium_bead"
+    },
+    "title": {
+      "translate": "advancements.mistborn_metal_arts.become_mistborn.title"
+    },
+    "description": {
+      "translate": "advancements.mistborn_metal_arts.become_mistborn.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "parent": "mistborn_metal_arts:root",
+  "criteria": {
+    "lerasium": {
+      "trigger": "minecraft:consume_item",
+      "conditions": {
+        "item": {
+          "items": [
+            "mistborn_metal_arts:lerasium_bead"
+          ]
+        }
+      }
+    }
+  }
+}

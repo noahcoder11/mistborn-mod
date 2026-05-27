@@ -1,0 +1,38 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "rolls": {
+        "min": 3,
+        "max": 7
+      },
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "weight": 20,
+          "name": "mistborn_metal_arts:steel_vial"
+        },
+        {
+          "type": "minecraft:item",
+          "weight": 20,
+          "name": "mistborn_metal_arts:iron_vial"
+        },
+        {
+          "type": "minecraft:item",
+          "weight": 15,
+          "name": "mistborn_metal_arts:pewter_vial"
+        },
+        {
+          "type": "minecraft:item",
+          "weight": 5,
+          "name": "mistborn_metal_arts:atium_bead"
+        },
+        {
+          "type": "minecraft:item",
+          "weight": 2,
+          "name": "mistborn_metal_arts:lerasium_bead"
+        }
+      ]
+    }
+  ]
+}

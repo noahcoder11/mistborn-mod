@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "mistborn_metal_arts:atium_bead",
+    "mistborn_metal_arts:lerasium_bead",
+    "mistborn_metal_arts:atium_ingot",
+    "mistborn_metal_arts:lerasium_ingot"
+  ]
+}

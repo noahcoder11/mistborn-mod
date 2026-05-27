@@ -1,0 +1,21 @@
+# Gradle
+.gradle/
+.gradle-local/
+.gradle-sandbox/
+build/
+run/
+run-data/
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo

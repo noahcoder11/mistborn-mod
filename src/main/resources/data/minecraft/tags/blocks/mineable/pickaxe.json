@@ -1,0 +1,27 @@
+{
+  "replace": false,
+  "values": [
+    "mistborn_metal_arts:metallurgy_table",
+    "mistborn_metal_arts:alloy_furnace",
+    "mistborn_metal_arts:spike_press",
+    "mistborn_metal_arts:bind_point_table",
+    "mistborn_metal_arts:metalmind_charging_stand",
+    "mistborn_metal_arts:atium_geode_cluster",
+    "mistborn_metal_arts:lerasium_cache_block",
+    "mistborn_metal_arts:metal_cache",
+    "mistborn_metal_arts:zinc_ore",
+    "mistborn_metal_arts:deepslate_zinc_ore",
+    "mistborn_metal_arts:tin_ore",
+    "mistborn_metal_arts:deepslate_tin_ore",
+    "mistborn_metal_arts:aluminum_ore",
+    "mistborn_metal_arts:deepslate_aluminum_ore",
+    "mistborn_metal_arts:chromium_ore",
+    "mistborn_metal_arts:deepslate_chromium_ore",
+    "mistborn_metal_arts:cadmium_ore",
+    "mistborn_metal_arts:deepslate_cadmium_ore",
+    "mistborn_metal_arts:well_of_ascension_block",
+    "mistborn_metal_arts:well_pulse_core",
+    "mistborn_metal_arts:sealed_well_door",
+    "mistborn_metal_arts:ancient_metal_floor"
+  ]
+}

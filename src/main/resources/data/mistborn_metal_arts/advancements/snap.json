@@ -1,0 +1,23 @@
+{
+  "display": {
+    "icon": {
+      "item": "mistborn_metal_arts:iron_vial"
+    },
+    "title": {
+      "translate": "advancements.mistborn_metal_arts.snap.title"
+    },
+    "description": {
+      "translate": "advancements.mistborn_metal_arts.snap.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "parent": "mistborn_metal_arts:root",
+  "criteria": {
+    "snapped": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

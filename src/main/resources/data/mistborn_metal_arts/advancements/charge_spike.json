@@ -1,0 +1,30 @@
+{
+  "display": {
+    "icon": {
+      "item": "mistborn_metal_arts:charged_iron_spike"
+    },
+    "title": {
+      "translate": "advancements.mistborn_metal_arts.charge_spike.title"
+    },
+    "description": {
+      "translate": "advancements.mistborn_metal_arts.charge_spike.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "parent": "mistborn_metal_arts:root",
+  "criteria": {
+    "spike": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "tag": "mistborn_metal_arts:hemalurgic_spikes"
+          }
+        ]
+      }
+    }
+  }
+}

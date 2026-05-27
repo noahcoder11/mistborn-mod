@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "mistborn_metal_arts:block/metal_inlaid_stone"
+  }
+}

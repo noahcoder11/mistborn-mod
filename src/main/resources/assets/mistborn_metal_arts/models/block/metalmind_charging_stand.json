@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "mistborn_metal_arts:block/metalmind_charging_stand",
+    "up": "mistborn_metal_arts:block/metalmind_charging_stand",
+    "down": "mistborn_metal_arts:block/metalmind_charging_stand",
+    "north": "mistborn_metal_arts:block/metalmind_charging_stand",
+    "south": "mistborn_metal_arts:block/metalmind_charging_stand",
+    "east": "mistborn_metal_arts:block/metalmind_charging_stand",
+    "west": "mistborn_metal_arts:block/metalmind_charging_stand"
+  }
+}

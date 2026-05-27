@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "mistborn_metal_arts:block/alloy_furnace_side",
+    "up": "mistborn_metal_arts:block/alloy_furnace_top",
+    "down": "mistborn_metal_arts:block/alloy_furnace_side",
+    "north": "mistborn_metal_arts:block/alloy_furnace_front",
+    "south": "mistborn_metal_arts:block/alloy_furnace_side",
+    "east": "mistborn_metal_arts:block/alloy_furnace_side",
+    "west": "mistborn_metal_arts:block/alloy_furnace_side"
+  }
+}

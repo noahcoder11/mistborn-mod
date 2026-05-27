@@ -1,0 +1,22 @@
+{
+  "metal_burn": {
+    "subtitle": "subtitles.mistborn_metal_arts.metal_burn",
+    "sounds": []
+  },
+  "metal_push": {
+    "subtitle": "subtitles.mistborn_metal_arts.metal_push",
+    "sounds": []
+  },
+  "metal_pull": {
+    "subtitle": "subtitles.mistborn_metal_arts.metal_pull",
+    "sounds": []
+  },
+  "bronze_pulse": {
+    "subtitle": "subtitles.mistborn_metal_arts.bronze_pulse",
+    "sounds": []
+  },
+  "lerasium_consume": {
+    "subtitle": "subtitles.mistborn_metal_arts.lerasium_consume",
+    "sounds": []
+  }
+}

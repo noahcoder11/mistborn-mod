@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "mistborn_metal_arts:atium_ingot"
+    }
+  ],
+  "result": {
+    "item": "mistborn_metal_arts:atium_flakes",
+    "count": 9
+  }
+}

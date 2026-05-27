@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " A ",
+    "IPI",
+    "III"
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:anvil"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "P": {
+      "item": "minecraft:piston"
+    }
+  },
+  "result": {
+    "item": "mistborn_metal_arts:spike_press"
+  }
+}

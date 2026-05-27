@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "mistborn_metal_arts:empty_glass_vial"
+    },
+    {
+      "item": "mistborn_metal_arts:zinc_flakes"
+    }
+  ],
+  "result": {
+    "item": "mistborn_metal_arts:zinc_vial"
+  }
+}

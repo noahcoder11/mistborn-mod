@@ -1,0 +1,29 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "mistborn_metal_arts:empty_glass_vial"
+    },
+    {
+      "item": "mistborn_metal_arts:iron_flakes"
+    },
+    {
+      "item": "mistborn_metal_arts:steel_flakes"
+    },
+    {
+      "item": "mistborn_metal_arts:tin_flakes"
+    },
+    {
+      "item": "mistborn_metal_arts:pewter_flakes"
+    },
+    {
+      "item": "mistborn_metal_arts:copper_flakes"
+    },
+    {
+      "item": "mistborn_metal_arts:bronze_flakes"
+    }
+  ],
+  "result": {
+    "item": "mistborn_metal_arts:mixed_metal_vial"
+  }
+}

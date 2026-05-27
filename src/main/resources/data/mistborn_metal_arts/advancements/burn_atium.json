@@ -1,0 +1,32 @@
+{
+  "display": {
+    "icon": {
+      "item": "mistborn_metal_arts:atium_vial"
+    },
+    "title": {
+      "translate": "advancements.mistborn_metal_arts.burn_atium.title"
+    },
+    "description": {
+      "translate": "advancements.mistborn_metal_arts.burn_atium.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "parent": "mistborn_metal_arts:root",
+  "criteria": {
+    "atium": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "mistborn_metal_arts:atium_vial"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

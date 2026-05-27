@@ -1,0 +1,7 @@
+{
+  "type": "mistborn_metal_arts:kredik_shaw",
+  "biomes": "#mistborn_metal_arts:kredik_shaw_spawn_biomes",
+  "step": "surface_structures",
+  "spawn_overrides": {},
+  "terrain_adaptation": "beard_thin"
+}

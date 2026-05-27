@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "mistborn_metal_arts:block/metallurgy_table_side",
+    "up": "mistborn_metal_arts:block/metallurgy_table_top",
+    "down": "mistborn_metal_arts:block/metallurgy_table_side",
+    "north": "mistborn_metal_arts:block/metallurgy_table_front",
+    "south": "mistborn_metal_arts:block/metallurgy_table_side",
+    "east": "mistborn_metal_arts:block/metallurgy_table_side",
+    "west": "mistborn_metal_arts:block/metallurgy_table_side"
+  }
+}

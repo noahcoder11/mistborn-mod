@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "#mistborn_metal_arts:metallic_blocks",
+    "minecraft:lodestone",
+    "minecraft:beacon",
+    "mistborn_metal_arts:well_pulse_core",
+    "mistborn_metal_arts:ancient_metal_floor"
+  ]
+}

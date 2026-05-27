@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/handheld",
+  "textures": {
+    "layer0": "mistborn_metal_arts:item/decaying_harmonium_spike"
+  }
+}

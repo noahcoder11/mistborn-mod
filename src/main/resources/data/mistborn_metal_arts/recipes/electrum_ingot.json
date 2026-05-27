@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "minecraft:gold_ingot"
+    },
+    {
+      "item": "mistborn_metal_arts:zinc_ingot"
+    }
+  ],
+  "result": {
+    "item": "mistborn_metal_arts:electrum_ingot"
+  }
+}

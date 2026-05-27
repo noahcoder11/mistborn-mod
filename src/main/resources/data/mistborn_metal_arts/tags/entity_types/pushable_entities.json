@@ -1,0 +1,22 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:item",
+    "minecraft:arrow",
+    "minecraft:spectral_arrow",
+    "minecraft:trident",
+    "mistborn_metal_arts:coinshot_bandit",
+    "mistborn_metal_arts:lurcher_guard",
+    "mistborn_metal_arts:pewter_thug",
+    "mistborn_metal_arts:tineye_scout",
+    "mistborn_metal_arts:rioter",
+    "mistborn_metal_arts:soother",
+    "mistborn_metal_arts:seeker",
+    "mistborn_metal_arts:smoker",
+    "mistborn_metal_arts:atium_seer",
+    "mistborn_metal_arts:mistborn_assassin",
+    "mistborn_metal_arts:koloss",
+    "mistborn_metal_arts:kandra",
+    "mistborn_metal_arts:steel_inquisitor"
+  ]
+}

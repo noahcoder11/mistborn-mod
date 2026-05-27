@@ -1,0 +1,36 @@
+{
+  "sources": [
+    {
+      "type": "single",
+      "resource": "mistborn_metal_arts:particle/blood_drop"
+    },
+    {
+      "type": "single",
+      "resource": "mistborn_metal_arts:particle/blood_splatter_1"
+    },
+    {
+      "type": "single",
+      "resource": "mistborn_metal_arts:particle/blood_splatter_2"
+    },
+    {
+      "type": "single",
+      "resource": "mistborn_metal_arts:particle/blood_splatter_3"
+    },
+    {
+      "type": "single",
+      "resource": "mistborn_metal_arts:particle/blood_splatter_4"
+    },
+    {
+      "type": "single",
+      "resource": "mistborn_metal_arts:particle/blood_slash_1"
+    },
+    {
+      "type": "single",
+      "resource": "mistborn_metal_arts:particle/blood_slash_2"
+    },
+    {
+      "type": "single",
+      "resource": "mistborn_metal_arts:particle/blood_slash_3"
+    }
+  ]
+}

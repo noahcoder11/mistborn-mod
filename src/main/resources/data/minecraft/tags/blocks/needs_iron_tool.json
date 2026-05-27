@@ -1,0 +1,15 @@
+{
+  "replace": false,
+  "values": [
+    "mistborn_metal_arts:atium_geode_cluster",
+    "mistborn_metal_arts:lerasium_cache_block",
+    "mistborn_metal_arts:chromium_ore",
+    "mistborn_metal_arts:deepslate_chromium_ore",
+    "mistborn_metal_arts:cadmium_ore",
+    "mistborn_metal_arts:deepslate_cadmium_ore",
+    "mistborn_metal_arts:well_of_ascension_block",
+    "mistborn_metal_arts:well_pulse_core",
+    "mistborn_metal_arts:sealed_well_door",
+    "mistborn_metal_arts:ancient_metal_floor"
+  ]
+}

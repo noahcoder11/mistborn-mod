@@ -1,0 +1,23 @@
+{
+  "replace": false,
+  "values": [
+    "mistborn_metal_arts:charged_iron_spike",
+    "mistborn_metal_arts:charged_steel_spike",
+    "mistborn_metal_arts:charged_tin_spike",
+    "mistborn_metal_arts:charged_pewter_spike",
+    "mistborn_metal_arts:charged_zinc_spike",
+    "mistborn_metal_arts:charged_brass_spike",
+    "mistborn_metal_arts:charged_copper_spike",
+    "mistborn_metal_arts:charged_bronze_spike",
+    "mistborn_metal_arts:charged_gold_spike",
+    "mistborn_metal_arts:charged_electrum_spike",
+    "mistborn_metal_arts:charged_cadmium_spike",
+    "mistborn_metal_arts:charged_bendalloy_spike",
+    "mistborn_metal_arts:charged_aluminum_spike",
+    "mistborn_metal_arts:charged_duralumin_spike",
+    "mistborn_metal_arts:charged_chromium_spike",
+    "mistborn_metal_arts:charged_nicrosil_spike",
+    "mistborn_metal_arts:charged_atium_spike",
+    "mistborn_metal_arts:charged_lerasium_spike"
+  ]
+}

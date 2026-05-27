@@ -1,0 +1,28 @@
+{
+  "display": {
+    "icon": {
+      "item": "mistborn_metal_arts:iron_vial"
+    },
+    "title": {
+      "translate": "advancements.mistborn_metal_arts.drink_first_vial.title"
+    },
+    "description": {
+      "translate": "advancements.mistborn_metal_arts.drink_first_vial.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "parent": "mistborn_metal_arts:root",
+  "criteria": {
+    "vial": {
+      "trigger": "minecraft:consume_item",
+      "conditions": {
+        "item": {
+          "tag": "mistborn_metal_arts:metallic_items"
+        }
+      }
+    }
+  }
+}
