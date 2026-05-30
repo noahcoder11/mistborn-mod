@@ -143,6 +143,55 @@ public final class MetalArtsHudOverlay {
         if (data.totalCorruption() > 0) {
             graphics.drawString(font, "Corruption: " + data.totalCorruption(), hotbarRight + 12, textY, 0xD47A7A, true);
         }
+
+        // 4. Render Spiritweb Status Panel in the top-left corner
+        int panelX = 10;
+        int panelY = 10;
+        int panelWidth = 115;
+        int panelHeight = 62;
+        long time = System.currentTimeMillis();
+
+        // Draw slate-black semi-transparent beveled glassmorphic background card
+        graphics.fill(panelX, panelY, panelX + panelWidth, panelY + panelHeight, 0x85090C12); // deep slate background
+        // Draw very subtle outline border
+        graphics.fill(panelX, panelY, panelX + panelWidth, panelY + 1, 0x35FFFFFF); // top border
+        graphics.fill(panelX, panelY + panelHeight - 1, panelX + panelWidth, panelY + panelHeight, 0x18FFFFFF); // bottom border
+        graphics.fill(panelX, panelY, panelX + 1, panelY + panelHeight, 0x35FFFFFF); // left border
+        graphics.fill(panelX + panelWidth - 1, panelY, panelX + panelWidth, panelY + panelHeight, 0x18FFFFFF); // right border
+
+        // Draw title
+        graphics.drawString(font, "SPIRITWEB STATUS", panelX + 6, panelY + 5, 0xFFCFD8DC, true);
+
+        // Draw Stability
+        float stability = data.soulStability();
+        int stabilityColor = stability < 30.0F ? (time % 500 < 250 ? 0xFFFF3D00 : 0xFFFF8A65) : 0xFF00E5FF;
+        String stabText = String.format("Stability: %.0f%%", stability);
+        graphics.drawString(font, stabText, panelX + 6, panelY + 16, 0xFFE0E0E0, true);
+        // Draw stability bar bg
+        graphics.fill(panelX + 6, panelY + 25, panelX + 6 + 103, panelY + 27, 0x40FFFFFF);
+        // Draw stability bar fill
+        int stabFillWidth = Math.round(103.0F * (stability / 100.0F));
+        graphics.fill(panelX + 6, panelY + 25, panelX + 6 + stabFillWidth, panelY + 27, stabilityColor);
+
+        // Draw Contamination
+        float contamination = data.identityContamination();
+        String contText = String.format("Contamination: %.0f%%", contamination);
+        graphics.drawString(font, contText, panelX + 6, panelY + 31, 0xFFE0E0E0, true);
+        // Draw contamination bar bg
+        graphics.fill(panelX + 6, panelY + 40, panelX + 6 + 103, panelY + 42, 0x40FFFFFF);
+        // Draw contamination bar fill
+        int contFillWidth = Math.round(103.0F * (contamination / 100.0F));
+        graphics.fill(panelX + 6, panelY + 40, panelX + 6 + contFillWidth, panelY + 42, 0xFF7C4DFF);
+
+        // Draw Bloat
+        float bloat = data.spiritualBloat();
+        String bloatText = String.format("Bloat: %.0f%%", bloat);
+        graphics.drawString(font, bloatText, panelX + 6, panelY + 46, 0xFFE0E0E0, true);
+        // Draw bloat bar bg
+        graphics.fill(panelX + 6, panelY + 55, panelX + 6 + 103, panelY + 57, 0x40FFFFFF);
+        // Draw bloat bar fill
+        int bloatFillWidth = Math.round(103.0F * (bloat / 100.0F));
+        graphics.fill(panelX + 6, panelY + 55, panelX + 6 + bloatFillWidth, panelY + 57, 0xFFFF4081);
     }
 
     private static void tickAndRenderSparks(GuiGraphics graphics) {
