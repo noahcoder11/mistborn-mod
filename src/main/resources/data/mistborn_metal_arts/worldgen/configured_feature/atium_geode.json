@@ -2,13 +2,43 @@
   "type": "minecraft:geode",
   "config": {
     "blocks": {
-      "filling": "minecraft:air",
-      "inner_layer": "mistborn_metal_arts:atium_geode",
-      "alternate_inner_layer": "mistborn_metal_arts:budding_atium",
-      "middle_layer": "mistborn_metal_arts:atium_geode",
-      "outer_layer": "minecraft:smooth_basalt",
+      "filling_provider": {
+        "type": "minecraft:simple_state_provider",
+        "state": {
+          "Name": "minecraft:air"
+        }
+      },
+      "inner_layer_provider": {
+        "type": "minecraft:simple_state_provider",
+        "state": {
+          "Name": "mistborn_metal_arts:atium_geode"
+        }
+      },
+      "alternate_inner_layer_provider": {
+        "type": "minecraft:simple_state_provider",
+        "state": {
+          "Name": "mistborn_metal_arts:budding_atium"
+        }
+      },
+      "middle_layer_provider": {
+        "type": "minecraft:simple_state_provider",
+        "state": {
+          "Name": "mistborn_metal_arts:atium_geode"
+        }
+      },
+      "outer_layer_provider": {
+        "type": "minecraft:simple_state_provider",
+        "state": {
+          "Name": "minecraft:smooth_basalt"
+        }
+      },
       "inner_placements": [
-        "mistborn_metal_arts:atium_cluster"
+        {
+          "type": "minecraft:simple_state_provider",
+          "state": {
+            "Name": "mistborn_metal_arts:atium_cluster"
+          }
+        }
       ],
       "cannot_replace": "#minecraft:features_cannot_replace",
       "invalid_blocks": "#minecraft:geode_invalid_blocks"
@@ -18,6 +48,11 @@
       "inner_layer": 2.2,
       "middle_layer": 3.2,
       "outer_layer": 4.2
+    },
+    "crack": {
+      "generate_crack_chance": 0.35,
+      "base_crack_size": 2.0,
+      "crack_point_offset": 2
     },
     "directions": [
       "up",
