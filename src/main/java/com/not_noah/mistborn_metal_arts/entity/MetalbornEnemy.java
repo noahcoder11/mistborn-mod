@@ -290,6 +290,13 @@ public class MetalbornEnemy extends Monster {
     }
 
     private void seek(ServerLevel level, ServerPlayer player) {
+        boolean trelliumShielded = player.getCapability(com.not_noah.mistborn_metal_arts.capability.MetalArtsCapabilities.METAL_ARTS)
+                .map(data -> data.isBurning(Metal.TRELLIUM) || data.installedSpikes().stream().anyMatch(s -> s.spikeMetal() == Metal.TRELLIUM))
+                .orElse(false);
+        if (trelliumShielded) {
+            return;
+        }
+
         if (isBurningAnyMetal(player) || role.isBoss()) {
             player.addEffect(new MobEffectInstance(MobEffects.GLOWING, 80, 0));
             setTarget(player);
@@ -337,7 +344,10 @@ public class MetalbornEnemy extends Monster {
     }
 
     private void spawnReinforcement(ServerLevel level, net.minecraft.core.BlockPos pos) {
-        MetalbornEnemy guard = (MetalbornEnemy) getType().create(level);
+        EntityType<MetalbornEnemy> type = random.nextBoolean()
+                ? com.not_noah.mistborn_metal_arts.registry.ModEntityTypes.PEWTER_THUG.get()
+                : com.not_noah.mistborn_metal_arts.registry.ModEntityTypes.LURCHER_GUARD.get();
+        MetalbornEnemy guard = type.create(level);
         if (guard == null) {
             return;
         }
