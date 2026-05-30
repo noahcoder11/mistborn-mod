@@ -69,6 +69,7 @@ public class MetalArtsData {
     private int lerasiumEnhancements = 0;
     private float lerasiumBonus = 0.0F;
     private final EnumMap<Metal, Float> lerasiumAlloyBonuses = new EnumMap<>(Metal.class);
+    private final EnumMap<Metal, Float> lerasatiumAlloyBonuses = new EnumMap<>(Metal.class);
 
     public MetalArtsData() {
         for (Metal metal : Metal.cachedValues()) {
@@ -79,6 +80,7 @@ public class MetalArtsData {
             savantProgress.put(metal, 0.0F);
             savantStage.put(metal, 0);
             lerasiumAlloyBonuses.put(metal, 0.0F);
+            lerasatiumAlloyBonuses.put(metal, 0.0F);
         }
         java.util.Random rand = new java.util.Random();
         this.allomanticStrength = 0.3F + rand.nextFloat() * 0.4F;
@@ -624,6 +626,13 @@ public class MetalArtsData {
         tag.put("SavantStage", savantStageTag);
         tag.put("LerasiumAlloyBonuses", alloyBonusTag);
 
+        CompoundTag lerasatiumAlloyBonusTag = new CompoundTag();
+        for (Metal metal : Metal.cachedValues()) {
+            float lab = lerasatiumAlloyBonuses.getOrDefault(metal, 0.0F);
+            if (lab > 0) lerasatiumAlloyBonusTag.putFloat(metal.id(), lab);
+        }
+        tag.put("LerasatiumAlloyBonuses", lerasatiumAlloyBonusTag);
+
         return tag;
     }
 
@@ -762,6 +771,12 @@ public class MetalArtsData {
             CompoundTag abTag = tag.getCompound("LerasiumAlloyBonuses");
             for (String key : abTag.getAllKeys()) {
                 Metal.byName(key).ifPresent(m -> lerasiumAlloyBonuses.put(m, abTag.getFloat(key)));
+            }
+        }
+        if (tag.contains("LerasatiumAlloyBonuses")) {
+            CompoundTag labTag = tag.getCompound("LerasatiumAlloyBonuses");
+            for (String key : labTag.getAllKeys()) {
+                Metal.byName(key).ifPresent(m -> lerasatiumAlloyBonuses.put(m, labTag.getFloat(key)));
             }
         }
 
@@ -1127,6 +1142,22 @@ public class MetalArtsData {
     public void addLerasiumAlloyBonus(Metal metal, float amount) {
         lerasiumAlloyBonuses.put(metal,
                 lerasiumAlloyBonuses.getOrDefault(metal, 0.0F) + amount);
+    }
+
+    public float getLerasatiumAlloyBonus(Metal metal) {
+        return lerasatiumAlloyBonuses.getOrDefault(metal, 0.0F);
+    }
+
+    public void addLerasatiumAlloyBonus(Metal metal, float amount) {
+        lerasatiumAlloyBonuses.put(metal,
+                lerasatiumAlloyBonuses.getOrDefault(metal, 0.0F) + amount);
+    }
+
+    public void addNaturalFeruchemicalPower(Metal metal) {
+        if (metal.isFeruchemical()) {
+            naturalFeruchemicalPowers.add(metal);
+            markNeedsPowerRefresh();
+        }
     }
 
     public void addNaturalAllomanticPower(Metal metal) {

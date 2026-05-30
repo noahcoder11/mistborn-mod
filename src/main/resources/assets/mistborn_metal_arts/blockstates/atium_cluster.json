@@ -1,0 +1,30 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "mistborn_metal_arts:block/atium_cluster",
+      "x": 90
+    },
+    "facing=south": {
+      "model": "mistborn_metal_arts:block/atium_cluster",
+      "x": 90,
+      "y": 180
+    },
+    "facing=east": {
+      "model": "mistborn_metal_arts:block/atium_cluster",
+      "x": 90,
+      "y": 90
+    },
+    "facing=west": {
+      "model": "mistborn_metal_arts:block/atium_cluster",
+      "x": 90,
+      "y": 270
+    },
+    "facing=up": {
+      "model": "mistborn_metal_arts:block/atium_cluster"
+    },
+    "facing=down": {
+      "model": "mistborn_metal_arts:block/atium_cluster",
+      "x": 180
+    }
+  }
+}

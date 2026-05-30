@@ -39,6 +39,11 @@ public final class ModCreativeTabs {
                 output.accept(ModItems.WELL_PULSE_CORE.get());
                 output.accept(ModItems.SEALED_WELL_DOOR.get());
                 output.accept(ModItems.ANCIENT_METAL_FLOOR.get());
+                output.accept(ModItems.ATIUM_GEODE.get());
+                output.accept(ModItems.BUDDING_ATIUM.get());
+                output.accept(ModItems.ATIUM_CLUSTER.get());
+                output.accept(ModItems.NETHER_TRELLIUM_ORE.get());
+                output.accept(ModItems.SPIRITUAL_CLEANSING_TALISMAN.get());
                 output.accept(ModItems.ZINC_ORE.get());
                 output.accept(ModItems.DEEPSLATE_ZINC_ORE.get());
                 output.accept(ModItems.TIN_ORE.get());
@@ -64,6 +69,12 @@ public final class ModCreativeTabs {
                     output.accept(ModItems.METAL_POWDERS.get(metal).get());
                     output.accept(ModItems.METAL_BLENDS.get(metal).get());
                     output.accept(ModItems.METAL_BEADS.get(metal).get());
+                    if (ModItems.LERASIUM_ALLOY_BEADS.containsKey(metal)) {
+                        output.accept(ModItems.LERASIUM_ALLOY_BEADS.get(metal).get());
+                    }
+                    if (ModItems.LERASATIUM_ALLOY_BEADS.containsKey(metal)) {
+                        output.accept(ModItems.LERASATIUM_ALLOY_BEADS.get(metal).get());
+                    }
                     output.accept(ModItems.METAL_INGOTS.get(metal).get());
                     output.accept(ModItems.RAW_ORES.get(metal).get());
                     if (ModItems.METAL_VIALS.containsKey(metal)) {

@@ -69,6 +69,24 @@ public final class MetalForceHelper {
         Vec3 fromPlayerToTarget = targetCenter.subtract(playerCenter);
         double distance = Math.max(1.0D, fromPlayerToTarget.length());
         Vec3 direction = fromPlayerToTarget.normalize();
+
+        // Resonance interference sideways drift (>35% Bloat)
+        float bloatVal = player.getCapability(com.not_noah.mistborn_metal_arts.capability.MetalArtsCapabilities.METAL_ARTS)
+                .map(d -> d.spiritualBloat())
+                .orElse(0.0F);
+        if (bloatVal > 35.0F) {
+            Vec3 perp;
+            if (Math.abs(direction.x) > 0.8) {
+                perp = new Vec3(direction.y, -direction.x, 0).normalize();
+            } else {
+                perp = new Vec3(0, direction.z, -direction.y).normalize();
+            }
+            double angle = player.getRandom().nextDouble() * 2.0 * Math.PI;
+            Vec3 perp2 = direction.cross(perp).normalize();
+            Vec3 planeVec = perp.scale(Math.cos(angle)).add(perp2.scale(Math.sin(angle)));
+            double offsetScale = 0.268 * ((bloatVal - 35.0F) / 65.0F) * player.getRandom().nextDouble();
+            direction = direction.add(planeVec.scale(offsetScale)).normalize();
+        }
         
         float allomanticStrength = player.getCapability(com.not_noah.mistborn_metal_arts.capability.MetalArtsCapabilities.METAL_ARTS)
                 .map(data -> data.getEffectiveStrength(pulling ? Metal.IRON : Metal.STEEL))

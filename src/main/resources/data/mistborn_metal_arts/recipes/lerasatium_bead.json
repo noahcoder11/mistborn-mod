@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "mistborn_metal_arts:lerasium_bead"
+    },
+    {
+      "item": "mistborn_metal_arts:atium_bead"
+    }
+  ],
+  "result": {
+    "item": "mistborn_metal_arts:lerasatium_bead",
+    "count": 1
+  }
+}

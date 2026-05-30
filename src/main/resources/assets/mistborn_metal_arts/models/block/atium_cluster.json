@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/amethyst_cluster",
+  "textures": {
+    "cross": "mistborn_metal_arts:block/atium_crystal_cluster"
+  }
+}

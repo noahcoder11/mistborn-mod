@@ -235,7 +235,7 @@ public final class FeruchemyManager {
 
     private static boolean store(ServerPlayer player, MetalArtsData data, ItemStack stack, Metal metal) {
         float charge = MetalmindItem.getCharge(stack);
-        float capacity = MetalmindItem.getCapacity(stack);
+        float capacity = MetalmindItem.getCapacity(stack) * (1.0F + 0.15F * data.getLerasatiumAlloyBonus(metal));
         if (charge >= capacity) {
             data.stopFeruchemy(metal);
             cleanupModifiersAndEffects(player, metal, 0);
@@ -276,15 +276,16 @@ public final class FeruchemyManager {
         float drainMultiplier = (float) (tapLevel * Math.pow(1.5D, tapLevel - 1));
         float rate = baseRate * drainMultiplier;
 
-        if (charge < rate) {
-            rate = charge;
+        float NbtRate = rate / (1.0F + 0.15F * data.getLerasatiumAlloyBonus(metal));
+        if (charge < NbtRate) {
+            NbtRate = charge;
         }
 
         boolean tapped = switch (metal) {
-            case COPPER -> tapCopper(player, stack, rate);
-            case BENDALLOY -> tapBendalloy(player, stack, rate);
+            case COPPER -> tapCopper(player, stack, NbtRate);
+            case BENDALLOY -> tapBendalloy(player, stack, NbtRate);
             default -> {
-                MetalmindItem.setCharge(stack, charge - rate);
+                MetalmindItem.setCharge(stack, charge - NbtRate);
                 yield true;
             }
         };
@@ -525,8 +526,13 @@ public final class FeruchemyManager {
                 player.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, 40, tapLevel - 1, false, false));
             }
             case GOLD -> {
-                player.heal(0.5F * tapLevel);
-                player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 40, tapLevel, false, false));
+                float healAmount = 0.5F * tapLevel;
+                float bloatVal = data.spiritualBloat();
+                if (bloatVal > 50.0F) {
+                    healAmount *= 0.7F; // 30% reduction in healing efficiency
+                }
+                player.heal(healAmount);
+                player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 40, bloatVal > 50.0F ? Math.max(0, (int)(tapLevel * 0.7F)) : tapLevel, false, false));
                 if (player.tickCount % 5 == 0) {
                     player.removeEffect(MobEffects.POISON);
                     player.removeEffect(MobEffects.WITHER);

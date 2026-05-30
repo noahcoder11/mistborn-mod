@@ -29,11 +29,6 @@
         },
         {
           "type": "minecraft:item",
-          "weight": 2,
-          "name": "mistborn_metal_arts:lerasium_bead"
-        },
-        {
-          "type": "minecraft:item",
           "weight": 10,
           "name": "mistborn_metal_arts:hemalurgic_manuscript"
         }

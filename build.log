@@ -1,0 +1,93 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.8/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Task :compileJava
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/worldgen/KredikShawBuilder.java:48: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+    private static final ResourceLocation KREDIK_SHAW_LOOT = new ResourceLocation(MistbornMetalArts.MOD_ID, "chests/kredik_shaw");
+                                                             ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/hemalurgy/SoulStabilityManager.java:195: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+        var key = new net.minecraft.resources.ResourceLocation("mistborn_metal_arts",
+                  ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/capability/MetalArtsEvents.java:53: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+    private static final ResourceLocation CAPABILITY_ID = new ResourceLocation(MistbornMetalArts.MOD_ID, "metal_arts");
+                                                          ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/capability/MetalArtsEvents.java:76: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+                event.addCapability(new ResourceLocation(MistbornMetalArts.MOD_ID, "blood_data"), new BloodDataProvider());
+                                    ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/capability/MetalArtsEvents.java:142: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+                            new ResourceLocation("mistborn_metal_arts", "snap")
+                            ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/network/MetalArtsNetwork.java:18: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+            new ResourceLocation(MistbornMetalArts.MOD_ID, "main"),
+            ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/curios/CuriosIntegration.java:52: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+            event.addCapability(new ResourceLocation(MistbornMetalArts.MOD_ID, "curio"), new ICapabilityProvider() {
+                                ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/curios/CuriosIntegration.java:61: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+            event.addCapability(new ResourceLocation(MistbornMetalArts.MOD_ID, "curio"), new ICapabilityProvider() {
+                                ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/MistbornMetalArts.java:35: warning: [removal] get() in FMLJavaModLoadingContext has been deprecated and marked for removal
+        IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
+                                                   ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/MistbornMetalArts.java:50: warning: [removal] get() in ModLoadingContext has been deprecated and marked for removal
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, CommonConfig.SPEC);
+                         ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/MistbornMetalArts.java:51: warning: [removal] get() in ModLoadingContext has been deprecated and marked for removal
+        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC);
+                         ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/registry/ModCreativeTabs.java:17: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+    private static final ResourceKey<Registry<CreativeModeTab>> CREATIVE_MODE_TAB_REGISTRY = ResourceKey.createRegistryKey(new ResourceLocation("minecraft", "creative_mode_tab"));
+                                                                                                                           ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/command/MetalArtsCommand.java:37: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+    private static final ResourceKey<Registry<Structure>> STRUCTURE_REGISTRY = ResourceKey.createRegistryKey(new ResourceLocation("minecraft", "worldgen/structure"));
+                                                                                                             ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/command/MetalArtsCommand.java:42: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+            KREDIK_SHAW_STRUCTURES = TagKey.create(STRUCTURE_REGISTRY, new ResourceLocation("mistborn_metal_arts", "kredik_shaw"));
+                                                                       ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/client/render/BloodOverlayLayer.java:18: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+    private static final ResourceLocation BLOOD_TEXTURE = new ResourceLocation(MistbornMetalArts.MOD_ID, "textures/entity/blood_overlay.png");
+                                                          ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/client/render/BloodOverlayLayer.java:21: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+            new ResourceLocation(MistbornMetalArts.MOD_ID, "textures/particle/blood_slash_1.png"),
+            ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/client/render/BloodOverlayLayer.java:22: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+            new ResourceLocation(MistbornMetalArts.MOD_ID, "textures/particle/blood_slash_2.png"),
+            ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/client/render/BloodOverlayLayer.java:23: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+            new ResourceLocation(MistbornMetalArts.MOD_ID, "textures/particle/blood_slash_3.png")
+            ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/client/render/StuckSpikesLayer.java:21: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+    private static final ResourceLocation WHITE_TEXTURE = new ResourceLocation(com.not_noah.mistborn_metal_arts.MistbornMetalArts.MOD_ID, "textures/entity/white.png");
+                                                          ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/client/MetalArtsClientEvents.java:112: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+                    private static final net.minecraft.resources.ResourceLocation NEUTRAL = new net.minecraft.resources.ResourceLocation(MistbornMetalArts.MOD_ID, "textures/entity/kandra.png");
+                                                                                            ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/client/MetalArtsClientEvents.java:113: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+                    private static final net.minecraft.resources.ResourceLocation REVEALED = new net.minecraft.resources.ResourceLocation(MistbornMetalArts.MOD_ID, "textures/entity/kandra_true.png");
+                                                                                             ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/client/MetalArtsClientEvents.java:1005: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+        private static final net.minecraft.resources.ResourceLocation VIGNETTE_LOCATION = new net.minecraft.resources.ResourceLocation(MistbornMetalArts.MOD_ID, "textures/gui/blood_vignette.png");
+                                                                                          ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/client/screen/MetalArtsRadialScreen.java:367: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+        ResourceLocation icon = new ResourceLocation("mistborn_metal_arts", "textures/gui/" + prefix + metal.id() + ".png");
+                                ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/client/hud/MetalArtsHudOverlay.java:116: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+            ResourceLocation arrowTex = new ResourceLocation("mistborn_metal_arts", "textures/gui/bronze_pulse_arrow.png");
+                                        ^
+/Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/client/hud/MetalArtsHudOverlay.java:265: warning: [removal] ResourceLocation(String,String) in ResourceLocation has been deprecated and marked for removal
+        ResourceLocation icon = new ResourceLocation(com.not_noah.mistborn_metal_arts.MistbornMetalArts.MOD_ID, "textures/gui/" + prefix + metal.id() + ".png");
+                                ^
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: /Users/noah/Documents/Codex/2026-05-14/you-are-an-expert-minecraft-mod/src/main/java/com/not_noah/mistborn_metal_arts/client/MetalArtsClientEvents.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+25 warnings
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.8/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 6s
+1 actionable task: 1 executed

@@ -5,6 +5,9 @@ import com.not_noah.mistborn_metal_arts.api.Metal;
 import com.not_noah.mistborn_metal_arts.entity.MetalbornRole;
 import com.not_noah.mistborn_metal_arts.item.HemalurgicSpikeItem;
 import com.not_noah.mistborn_metal_arts.item.LerasiumBeadItem;
+import com.not_noah.mistborn_metal_arts.item.LerasatiumBeadItem;
+import com.not_noah.mistborn_metal_arts.item.AlloyBeadItem;
+import com.not_noah.mistborn_metal_arts.item.SpiritualCleansingTalismanItem;
 import com.not_noah.mistborn_metal_arts.item.MetalVialItem;
 import com.not_noah.mistborn_metal_arts.item.MetalmindItem;
 import com.not_noah.mistborn_metal_arts.item.ObsidianAxeItem;
@@ -38,6 +41,8 @@ public final class ModItems {
     public static final EnumMap<Metal, RegistryObject<Item>> SPIKE_BLANKS = new EnumMap<>(Metal.class);
     public static final EnumMap<Metal, RegistryObject<Item>> CHARGED_SPIKES = new EnumMap<>(Metal.class);
     public static final EnumMap<MetalbornRole, RegistryObject<Item>> METALBORN_SPAWN_EGGS = new EnumMap<>(MetalbornRole.class);
+    public static final EnumMap<Metal, RegistryObject<Item>> LERASIUM_ALLOY_BEADS = new EnumMap<>(Metal.class);
+    public static final EnumMap<Metal, RegistryObject<Item>> LERASATIUM_ALLOY_BEADS = new EnumMap<>(Metal.class);
 
     public static final RegistryObject<Item> EMPTY_GLASS_VIAL = ITEMS.register("empty_glass_vial", () -> new Item(new Item.Properties().stacksTo(64)));
     public static final RegistryObject<Item> MIXED_METAL_VIAL = ITEMS.register("mixed_metal_vial", () -> new MetalVialItem(null, true, new Item.Properties().stacksTo(16)));
@@ -46,6 +51,7 @@ public final class ModItems {
     public static final RegistryObject<Item> SPIKE_REMOVAL_TOOL = ITEMS.register("spike_removal_tool", () -> new SpikeRemovalToolItem(new Item.Properties().stacksTo(1).durability(64)));
     public static final RegistryObject<Item> OBSIDIAN_AXE = ITEMS.register("obsidian_axe", () -> new ObsidianAxeItem(new Item.Properties().stacksTo(1).fireResistant()));
     public static final RegistryObject<Item> GLASS_DAGGER = ITEMS.register("glass_dagger", () -> new com.not_noah.mistborn_metal_arts.item.GlassDaggerItem(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> SPIRITUAL_CLEANSING_TALISMAN = ITEMS.register("spiritual_cleansing_talisman", () -> new SpiritualCleansingTalismanItem(new Item.Properties().stacksTo(1).fireResistant()));
     public static final RegistryObject<Item> BLOOD_VIAL = ITEMS.register("blood_vial", () -> new com.not_noah.mistborn_metal_arts.item.BloodVialItem(ModBlocks.BLOOD_VIAL.get(), new Item.Properties().stacksTo(1)));
     public static final RegistryObject<Item> ALUMINUM_CASING = ITEMS.register("aluminum_casing", () -> new com.not_noah.mistborn_metal_arts.item.AluminumCasingItem(ModBlocks.ALUMINUM_CASING.get(), new Item.Properties().stacksTo(1)));
 
@@ -53,6 +59,10 @@ public final class ModItems {
     public static final RegistryObject<Item> HEMALURGIC_ALTAR = blockItem("hemalurgic_altar", ModBlocks.HEMALURGIC_ALTAR);
     public static final RegistryObject<Item> BLOOD_PRESERVATION_TANK = ITEMS.register("blood_preservation_tank", () -> new com.not_noah.mistborn_metal_arts.item.BloodPreservationTankItem(ModBlocks.BLOOD_PRESERVATION_TANK.get(), new Item.Properties()));
     public static final RegistryObject<Item> ATIUM_GEODE_CLUSTER = blockItem("atium_geode_cluster", ModBlocks.ATIUM_GEODE_CLUSTER);
+    public static final RegistryObject<Item> ATIUM_GEODE = blockItem("atium_geode", ModBlocks.ATIUM_GEODE);
+    public static final RegistryObject<Item> BUDDING_ATIUM = blockItem("budding_atium", ModBlocks.BUDDING_ATIUM);
+    public static final RegistryObject<Item> ATIUM_CLUSTER = blockItem("atium_cluster", ModBlocks.ATIUM_CLUSTER);
+    public static final RegistryObject<Item> NETHER_TRELLIUM_ORE = blockItem("nether_trellium_ore", ModBlocks.NETHER_TRELLIUM_ORE);
     public static final RegistryObject<Item> LERASIUM_CACHE_BLOCK = blockItem("lerasium_cache_block", ModBlocks.LERASIUM_CACHE_BLOCK);
     public static final RegistryObject<Item> METAL_CACHE = blockItem("metal_cache", ModBlocks.METAL_CACHE);
     public static final RegistryObject<Item> WELL_OF_ASCENSION_BLOCK = blockItem("well_of_ascension_block", ModBlocks.WELL_OF_ASCENSION_BLOCK);
@@ -83,8 +93,14 @@ public final class ModItems {
             METAL_POWDERS.put(metal, ITEMS.register(metal.id() + "_powder", () -> new Item(new Item.Properties())));
             if (metal == Metal.LERASIUM) {
                 METAL_BEADS.put(metal, ITEMS.register("lerasium_bead", () -> new LerasiumBeadItem(new Item.Properties().stacksTo(16).fireResistant())));
+            } else if (metal == Metal.LERASATIUM) {
+                METAL_BEADS.put(metal, ITEMS.register("lerasatium_bead", () -> new LerasatiumBeadItem(new Item.Properties().stacksTo(16).fireResistant())));
             } else {
                 METAL_BEADS.put(metal, ITEMS.register(metal.id() + "_bead", () -> new Item(new Item.Properties().stacksTo(32).fireResistant())));
+            }
+            if (!metal.isGodMetal()) {
+                LERASIUM_ALLOY_BEADS.put(metal, ITEMS.register("lerasium_" + metal.id() + "_bead", () -> new AlloyBeadItem(metal, false, new Item.Properties().stacksTo(16).fireResistant())));
+                LERASATIUM_ALLOY_BEADS.put(metal, ITEMS.register("lerasatium_" + metal.id() + "_bead", () -> new AlloyBeadItem(metal, true, new Item.Properties().stacksTo(16).fireResistant())));
             }
             METAL_INGOTS.put(metal, ITEMS.register(metal.id() + "_ingot", () -> new Item(new Item.Properties())));
             METAL_BLENDS.put(metal, ITEMS.register(metal.id() + "_blend", () -> new Item(new Item.Properties())));

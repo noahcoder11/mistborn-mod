@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "mistborn_metal_arts:lerasium_bead"
+    },
+    {
+      "item": "mistborn_metal_arts:zinc_ingot"
+    },
+    {
+      "item": "mistborn_metal_arts:zinc_ingot"
+    },
+    {
+      "item": "mistborn_metal_arts:zinc_ingot"
+    },
+    {
+      "item": "mistborn_metal_arts:zinc_ingot"
+    }
+  ],
+  "result": {
+    "item": "mistborn_metal_arts:lerasium_zinc_bead",
+    "count": 1
+  }
+}

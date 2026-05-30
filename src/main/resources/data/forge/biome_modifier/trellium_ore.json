@@ -1,0 +1,6 @@
+{
+  "type": "forge:add_features",
+  "biomes": "#minecraft:is_nether",
+  "features": "mistborn_metal_arts:trellium_ore",
+  "step": "underground_ores"
+}

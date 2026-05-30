@@ -9,6 +9,9 @@ import com.not_noah.mistborn_metal_arts.feruchemy.FeruchemyManager;
 import com.not_noah.mistborn_metal_arts.hemalurgy.HemalurgyManager;
 import com.not_noah.mistborn_metal_arts.network.MetalArtsNetwork;
 import com.not_noah.mistborn_metal_arts.registry.ModEffects;
+import com.not_noah.mistborn_metal_arts.registry.ModBlocks;
+import com.not_noah.mistborn_metal_arts.registry.ModItems;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -184,6 +187,7 @@ public final class MetalArtsEvents {
                 com.not_noah.mistborn_metal_arts.hemalurgy.SoulStabilityManager.tick(serverPlayer, data);
                 com.not_noah.mistborn_metal_arts.hemalurgy.IdentityContaminationManager.tick(serverPlayer, data);
                 com.not_noah.mistborn_metal_arts.hemalurgy.SavantismManager.tick(serverPlayer, data);
+                com.not_noah.mistborn_metal_arts.hemalurgy.SpiritualBloatManager.tick(serverPlayer);
             });
         }
 
@@ -667,6 +671,14 @@ public final class MetalArtsEvents {
         public static void onBlockBreak(BlockEvent.BreakEvent event) {
             Player player = event.getPlayer();
             if (player != null && !player.level().isClientSide()) {
+                BlockState brokenState = event.getState();
+                net.minecraft.world.level.block.Block brokenBlock = brokenState.getBlock();
+                if (brokenBlock == ModBlocks.ATIUM_CLUSTER.get() || brokenBlock == ModBlocks.BUDDING_ATIUM.get() || brokenBlock == ModBlocks.ATIUM_GEODE.get()) {
+                    player.hurt(player.damageSources().generic(), 2.0F);
+                    player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+                            net.minecraft.sounds.SoundEvents.PLAYER_HURT, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 1.0F);
+                    player.displayClientMessage(Component.literal("§cYour hands are scarred by the sharp, jagged Atium crystals...§r"), true);
+                }
                 player.getCapability(MetalArtsCapabilities.METAL_ARTS).ifPresent(data -> {
                     if (data.isTapping(Metal.CHROMIUM)) {
                         // High luck block break: small chance to drop extra item
@@ -686,6 +698,34 @@ public final class MetalArtsEvents {
                     }
                 });
             }
+        }
+
+        @SubscribeEvent
+        public static void onLootTableLoad(net.minecraftforge.event.LootTableLoadEvent event) {
+            if (event.getName().toString().equals("minecraft:chests/abandoned_mineshaft")) {
+                net.minecraft.world.level.storage.loot.LootPool.Builder pool = net.minecraft.world.level.storage.loot.LootPool.lootPool()
+                        .setRolls(net.minecraft.world.level.storage.loot.providers.number.ConstantValue.exactly(1.0F))
+                        .when(net.minecraft.world.level.storage.loot.predicates.LootItemRandomChanceCondition.randomChance(0.05F))
+                        .add(net.minecraft.world.level.storage.loot.entries.LootItem.lootTableItem(ModItems.METAL_BEADS.get(Metal.ATIUM).get()));
+                event.getTable().addPool(pool.build());
+            }
+        }
+
+        @SubscribeEvent
+        public static void onWanderingTrades(net.minecraftforge.event.village.WandererTradesEvent event) {
+            event.getRareTrades().add((merchant, random) -> new net.minecraft.world.item.trading.MerchantOffer(
+                    new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.EMERALD, 32),
+                    new net.minecraft.world.item.ItemStack(ModItems.METAL_BEADS.get(Metal.ATIUM).get(), 1),
+                    new net.minecraft.world.item.ItemStack(ModItems.METAL_BEADS.get(Metal.RAYSIUM).get(), 1),
+                    1, 10, 0.05F
+            ));
+
+            event.getRareTrades().add((merchant, random) -> new net.minecraft.world.item.trading.MerchantOffer(
+                    new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.EMERALD, 24),
+                    new net.minecraft.world.item.ItemStack(ModItems.METAL_BEADS.get(Metal.ALUMINUM).get(), 1),
+                    new net.minecraft.world.item.ItemStack(ModItems.METAL_BEADS.get(Metal.TANAVASTIUM).get(), 1),
+                    1, 10, 0.05F
+            ));
         }
 
         private static void rollFirstJoinPowers(MetalArtsData data) {

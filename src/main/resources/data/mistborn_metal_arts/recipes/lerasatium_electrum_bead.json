@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "mistborn_metal_arts:lerasatium_bead"
+    },
+    {
+      "item": "mistborn_metal_arts:electrum_ingot"
+    },
+    {
+      "item": "mistborn_metal_arts:electrum_ingot"
+    },
+    {
+      "item": "mistborn_metal_arts:electrum_ingot"
+    },
+    {
+      "item": "mistborn_metal_arts:electrum_ingot"
+    }
+  ],
+  "result": {
+    "item": "mistborn_metal_arts:lerasatium_electrum_bead",
+    "count": 1
+  }
+}

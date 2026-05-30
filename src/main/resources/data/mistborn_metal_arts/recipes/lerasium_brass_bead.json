@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "mistborn_metal_arts:lerasium_bead"
+    },
+    {
+      "item": "mistborn_metal_arts:brass_ingot"
+    },
+    {
+      "item": "mistborn_metal_arts:brass_ingot"
+    },
+    {
+      "item": "mistborn_metal_arts:brass_ingot"
+    },
+    {
+      "item": "mistborn_metal_arts:brass_ingot"
+    }
+  ],
+  "result": {
+    "item": "mistborn_metal_arts:lerasium_brass_bead",
+    "count": 1
+  }
+}
