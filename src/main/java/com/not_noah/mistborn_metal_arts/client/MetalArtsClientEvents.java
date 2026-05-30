@@ -49,6 +49,7 @@ import com.not_noah.mistborn_metal_arts.client.render.SteelInquisitorRenderer;
 import com.not_noah.mistborn_metal_arts.entity.MetalbornRole;
 import com.not_noah.mistborn_metal_arts.capability.MetalArtsData;
 import com.not_noah.mistborn_metal_arts.client.screen.MetalArtsMachineScreen;
+import com.not_noah.mistborn_metal_arts.registry.ModBlocks;
 import com.not_noah.mistborn_metal_arts.registry.ModMenus;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -62,6 +63,10 @@ public final class MetalArtsClientEvents {
     public static void clientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
             MenuScreens.register(ModMenus.METAL_ARTS_MACHINE.get(), MetalArtsMachineScreen::new);
+            net.minecraft.client.renderer.ItemBlockRenderTypes.setRenderLayer(ModBlocks.ATIUM_CLUSTER.get(), RenderType.cutout());
+            net.minecraft.client.renderer.ItemBlockRenderTypes.setRenderLayer(ModBlocks.ATIUM_GEODE_CLUSTER.get(), RenderType.cutout());
+            net.minecraft.client.renderer.ItemBlockRenderTypes.setRenderLayer(ModBlocks.BLOOD_VIAL.get(), RenderType.translucent());
+            net.minecraft.client.renderer.ItemBlockRenderTypes.setRenderLayer(ModBlocks.ALUMINUM_CASING.get(), RenderType.cutout());
         });
     }
 

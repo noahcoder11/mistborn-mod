@@ -145,53 +145,98 @@ public final class MetalArtsHudOverlay {
         }
 
         // 4. Render Spiritweb Status Panel in the top-left corner
-        int panelX = 10;
-        int panelY = 10;
-        int panelWidth = 115;
-        int panelHeight = 62;
+        int startX = 10;
+        int startY = 10;
         long time = System.currentTimeMillis();
 
-        // Draw slate-black semi-transparent beveled glassmorphic background card
-        graphics.fill(panelX, panelY, panelX + panelWidth, panelY + panelHeight, 0x85090C12); // deep slate background
-        // Draw very subtle outline border
-        graphics.fill(panelX, panelY, panelX + panelWidth, panelY + 1, 0x35FFFFFF); // top border
-        graphics.fill(panelX, panelY + panelHeight - 1, panelX + panelWidth, panelY + panelHeight, 0x18FFFFFF); // bottom border
-        graphics.fill(panelX, panelY, panelX + 1, panelY + panelHeight, 0x35FFFFFF); // left border
-        graphics.fill(panelX + panelWidth - 1, panelY, panelX + panelWidth, panelY + panelHeight, 0x18FFFFFF); // right border
+        // Title text
+        graphics.drawString(font, "SPIRITWEB STATUS", startX, startY, 0xFFCFD8DC, true);
 
-        // Draw title
-        graphics.drawString(font, "SPIRITWEB STATUS", panelX + 6, panelY + 5, 0xFFCFD8DC, true);
-
-        // Draw Stability
+        // --- STABILITY GAUGE ---
         float stability = data.soulStability();
         int stabilityColor = stability < 30.0F ? (time % 500 < 250 ? 0xFFFF3D00 : 0xFFFF8A65) : 0xFF00E5FF;
-        String stabText = String.format("Stability: %.0f%%", stability);
-        graphics.drawString(font, stabText, panelX + 6, panelY + 16, 0xFFE0E0E0, true);
-        // Draw stability bar bg
-        graphics.fill(panelX + 6, panelY + 25, panelX + 6 + 103, panelY + 27, 0x40FFFFFF);
-        // Draw stability bar fill
-        int stabFillWidth = Math.round(103.0F * (stability / 100.0F));
-        graphics.fill(panelX + 6, panelY + 25, panelX + 6 + stabFillWidth, panelY + 27, stabilityColor);
+        float stabilityCx = startX + 8;
+        float stabilityCy = startY + 18;
+        
+        // Draw backdrop and border
+        drawDisc(graphics, stabilityCx, stabilityCy, 8.0F, 0xCC0D121B);
+        drawRingSegment(graphics, stabilityCx, stabilityCy, 7.6F, 8.0F, 0F, (float)(2 * Math.PI), 0x22FFFFFF);
+        
+        // Draw progress arc
+        float stabPct = Math.max(0.0F, Math.min(1.0F, stability / 100.0F));
+        if (stabPct > 0F) {
+            float startAngle = -(float)Math.PI / 2F;
+            float endAngle = startAngle + (float)(2 * Math.PI * stabPct);
+            drawRingSegment(graphics, stabilityCx, stabilityCy, 5.8F, 7.8F, startAngle, endAngle, stabilityColor);
+        }
+        
+        // Draw centered 'S'
+        String letterS = "S";
+        float sX = stabilityCx - font.width(letterS) / 2.0F + 0.5F;
+        float sY = stabilityCy - 4.0F;
+        graphics.drawString(font, letterS, sX, sY, stabilityColor, true);
+        
+        // Draw Stability Text Label
+        graphics.drawString(font, "Stability: ", stabilityCx + 14, stabilityCy - 4, 0xFFCFD8DC, true);
+        graphics.drawString(font, Math.round(stability) + "%", stabilityCx + 14 + font.width("Stability: "), stabilityCy - 4, stabilityColor, true);
 
-        // Draw Contamination
+
+        // --- CONTAMINATION GAUGE ---
         float contamination = data.identityContamination();
-        String contText = String.format("Contamination: %.0f%%", contamination);
-        graphics.drawString(font, contText, panelX + 6, panelY + 31, 0xFFE0E0E0, true);
-        // Draw contamination bar bg
-        graphics.fill(panelX + 6, panelY + 40, panelX + 6 + 103, panelY + 42, 0x40FFFFFF);
-        // Draw contamination bar fill
-        int contFillWidth = Math.round(103.0F * (contamination / 100.0F));
-        graphics.fill(panelX + 6, panelY + 40, panelX + 6 + contFillWidth, panelY + 42, 0xFF7C4DFF);
+        int contaminationColor = 0xFF7C4DFF;
+        float contCx = startX + 8;
+        float contCy = startY + 38;
+        
+        // Draw backdrop and border
+        drawDisc(graphics, contCx, contCy, 8.0F, 0xCC0D121B);
+        drawRingSegment(graphics, contCx, contCy, 7.6F, 8.0F, 0F, (float)(2 * Math.PI), 0x22FFFFFF);
+        
+        // Draw progress arc
+        float contPct = Math.max(0.0F, Math.min(1.0F, contamination / 100.0F));
+        if (contPct > 0F) {
+            float startAngle = -(float)Math.PI / 2F;
+            float endAngle = startAngle + (float)(2 * Math.PI * contPct);
+            drawRingSegment(graphics, contCx, contCy, 5.8F, 7.8F, startAngle, endAngle, contaminationColor);
+        }
+        
+        // Draw centered 'C'
+        String letterC = "C";
+        float cX = contCx - font.width(letterC) / 2.0F + 0.5F;
+        float cY = contCy - 4.0F;
+        graphics.drawString(font, letterC, cX, cY, 0xFFD1C4E9, true);
+        
+        // Draw Contamination Text Label
+        graphics.drawString(font, "Contamination: ", contCx + 14, contCy - 4, 0xFFCFD8DC, true);
+        graphics.drawString(font, Math.round(contamination) + "%", contCx + 14 + font.width("Contamination: "), contCy - 4, 0xFFD1C4E9, true);
 
-        // Draw Bloat
+
+        // --- BLOAT GAUGE ---
         float bloat = data.spiritualBloat();
-        String bloatText = String.format("Bloat: %.0f%%", bloat);
-        graphics.drawString(font, bloatText, panelX + 6, panelY + 46, 0xFFE0E0E0, true);
-        // Draw bloat bar bg
-        graphics.fill(panelX + 6, panelY + 55, panelX + 6 + 103, panelY + 57, 0x40FFFFFF);
-        // Draw bloat bar fill
-        int bloatFillWidth = Math.round(103.0F * (bloat / 100.0F));
-        graphics.fill(panelX + 6, panelY + 55, panelX + 6 + bloatFillWidth, panelY + 57, 0xFFFF4081);
+        int bloatColor = 0xFFFF4081;
+        float bloatCx = startX + 8;
+        float bloatCy = startY + 58;
+        
+        // Draw backdrop and border
+        drawDisc(graphics, bloatCx, bloatCy, 8.0F, 0xCC0D121B);
+        drawRingSegment(graphics, bloatCx, bloatCy, 7.6F, 8.0F, 0F, (float)(2 * Math.PI), 0x22FFFFFF);
+        
+        // Draw progress arc
+        float bloatPct = Math.max(0.0F, Math.min(1.0F, bloat / 100.0F));
+        if (bloatPct > 0F) {
+            float startAngle = -(float)Math.PI / 2F;
+            float endAngle = startAngle + (float)(2 * Math.PI * bloatPct);
+            drawRingSegment(graphics, bloatCx, bloatCy, 5.8F, 7.8F, startAngle, endAngle, bloatColor);
+        }
+        
+        // Draw centered 'B'
+        String letterB = "B";
+        float bX = bloatCx - font.width(letterB) / 2.0F + 0.5F;
+        float bY = bloatCy - 4.0F;
+        graphics.drawString(font, letterB, bX, bY, 0xFFF8BBD0, true);
+        
+        // Draw Bloat Text Label
+        graphics.drawString(font, "Bloat: ", bloatCx + 14, bloatCy - 4, 0xFFCFD8DC, true);
+        graphics.drawString(font, Math.round(bloat) + "%", bloatCx + 14 + font.width("Bloat: "), bloatCy - 4, 0xFFF8BBD0, true);
     }
 
     private static void tickAndRenderSparks(GuiGraphics graphics) {
