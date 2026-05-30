@@ -83,7 +83,7 @@ public final class SmallStructureBuilder {
         }
         for (int i = 0; i < 9; i++) {
             BlockPos crystal = origin.offset(level.random.nextInt(9) - 4, level.random.nextInt(3) - 2, level.random.nextInt(9) - 4);
-            level.setBlock(crystal, ModBlocks.ATIUM_GEODE_CLUSTER.get().defaultBlockState(), 3);
+            level.setBlock(crystal, ModBlocks.ATIUM_CLUSTER.get().defaultBlockState(), 3);
         }
         placeLoot(level, origin.offset(4, -2, 4), LootProfile.ATIUM);
         spawn(level, ModEntityTypes.ATIUM_SEER.get(), origin.offset(0, -2, 0), MetalbornRole.ATIUM_SEER);

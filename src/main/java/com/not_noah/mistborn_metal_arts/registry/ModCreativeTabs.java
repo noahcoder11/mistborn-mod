@@ -32,7 +32,6 @@ public final class ModCreativeTabs {
                 output.accept(ModItems.SPIKE_REMOVAL_TOOL.get());
                 output.accept(ModItems.SPIKE_PRESS.get());
                 output.accept(ModItems.HEMALURGIC_ALTAR.get());
-                output.accept(ModItems.ATIUM_GEODE_CLUSTER.get());
                 output.accept(ModItems.LERASIUM_CACHE_BLOCK.get());
                 output.accept(ModItems.METAL_CACHE.get());
                 output.accept(ModItems.WELL_OF_ASCENSION_BLOCK.get());

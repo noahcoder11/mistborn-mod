@@ -152,91 +152,69 @@ public final class MetalArtsHudOverlay {
         // Title text
         graphics.drawString(font, "SPIRITWEB STATUS", startX, startY, 0xFFCFD8DC, true);
 
-        // --- STABILITY GAUGE ---
+        // Mandala Center Coordinates
+        float cx = startX + 20;
+        float cy = startY + 28;
+
         float stability = data.soulStability();
+        float contamination = data.identityContamination();
+        float bloat = data.spiritualBloat();
+
         int stabilityColor = stability < 30.0F ? (time % 500 < 250 ? 0xFFFF3D00 : 0xFFFF8A65) : 0xFF00E5FF;
-        float stabilityCx = startX + 8;
-        float stabilityCy = startY + 18;
-        
-        // Draw backdrop and border
-        drawDisc(graphics, stabilityCx, stabilityCy, 8.0F, 0xCC0D121B);
-        drawRingSegment(graphics, stabilityCx, stabilityCy, 7.6F, 8.0F, 0F, (float)(2 * Math.PI), 0x22FFFFFF);
-        
-        // Draw progress arc
+        int contaminationColor = 0xFF7C4DFF;
+        int bloatColor = 0xFFFF4081;
+
+        // Draw Mandala Backdrop Plate
+        drawDisc(graphics, cx, cy, 19.5F, 0xCC0D121B);
+        drawRingSegment(graphics, cx, cy, 19.0F, 19.5F, 0F, (float)(2 * Math.PI), 0x22FFFFFF);
+
+        // Draw Outer Stability Ring
+        drawRingSegment(graphics, cx, cy, 16.0F, 18.5F, 0F, (float)(2 * Math.PI), 0x15FFFFFF);
         float stabPct = Math.max(0.0F, Math.min(1.0F, stability / 100.0F));
         if (stabPct > 0F) {
             float startAngle = -(float)Math.PI / 2F;
             float endAngle = startAngle + (float)(2 * Math.PI * stabPct);
-            drawRingSegment(graphics, stabilityCx, stabilityCy, 5.8F, 7.8F, startAngle, endAngle, stabilityColor);
+            drawRingSegment(graphics, cx, cy, 16.0F, 18.5F, startAngle, endAngle, stabilityColor);
         }
-        
-        // Draw centered 'S'
-        String letterS = "S";
-        float sX = stabilityCx - font.width(letterS) / 2.0F + 0.5F;
-        float sY = stabilityCy - 4.0F;
-        graphics.drawString(font, letterS, sX, sY, stabilityColor, true);
-        
-        // Draw Stability Text Label
-        graphics.drawString(font, "Stability: ", stabilityCx + 14, stabilityCy - 4, 0xFFCFD8DC, true);
-        graphics.drawString(font, Math.round(stability) + "%", stabilityCx + 14 + font.width("Stability: "), stabilityCy - 4, stabilityColor, true);
 
-
-        // --- CONTAMINATION GAUGE ---
-        float contamination = data.identityContamination();
-        int contaminationColor = 0xFF7C4DFF;
-        float contCx = startX + 8;
-        float contCy = startY + 38;
-        
-        // Draw backdrop and border
-        drawDisc(graphics, contCx, contCy, 8.0F, 0xCC0D121B);
-        drawRingSegment(graphics, contCx, contCy, 7.6F, 8.0F, 0F, (float)(2 * Math.PI), 0x22FFFFFF);
-        
-        // Draw progress arc
+        // Draw Middle Contamination Ring
+        drawRingSegment(graphics, cx, cy, 12.5F, 15.0F, 0F, (float)(2 * Math.PI), 0x15FFFFFF);
         float contPct = Math.max(0.0F, Math.min(1.0F, contamination / 100.0F));
         if (contPct > 0F) {
             float startAngle = -(float)Math.PI / 2F;
             float endAngle = startAngle + (float)(2 * Math.PI * contPct);
-            drawRingSegment(graphics, contCx, contCy, 5.8F, 7.8F, startAngle, endAngle, contaminationColor);
+            drawRingSegment(graphics, cx, cy, 12.5F, 15.0F, startAngle, endAngle, contaminationColor);
         }
-        
-        // Draw centered 'C'
-        String letterC = "C";
-        float cX = contCx - font.width(letterC) / 2.0F + 0.5F;
-        float cY = contCy - 4.0F;
-        graphics.drawString(font, letterC, cX, cY, 0xFFD1C4E9, true);
-        
-        // Draw Contamination Text Label
-        graphics.drawString(font, "Contamination: ", contCx + 14, contCy - 4, 0xFFCFD8DC, true);
-        graphics.drawString(font, Math.round(contamination) + "%", contCx + 14 + font.width("Contamination: "), contCy - 4, 0xFFD1C4E9, true);
 
-
-        // --- BLOAT GAUGE ---
-        float bloat = data.spiritualBloat();
-        int bloatColor = 0xFFFF4081;
-        float bloatCx = startX + 8;
-        float bloatCy = startY + 58;
-        
-        // Draw backdrop and border
-        drawDisc(graphics, bloatCx, bloatCy, 8.0F, 0xCC0D121B);
-        drawRingSegment(graphics, bloatCx, bloatCy, 7.6F, 8.0F, 0F, (float)(2 * Math.PI), 0x22FFFFFF);
-        
-        // Draw progress arc
+        // Draw Inner Bloat Ring
+        drawRingSegment(graphics, cx, cy, 9.0F, 11.5F, 0F, (float)(2 * Math.PI), 0x15FFFFFF);
         float bloatPct = Math.max(0.0F, Math.min(1.0F, bloat / 100.0F));
         if (bloatPct > 0F) {
             float startAngle = -(float)Math.PI / 2F;
             float endAngle = startAngle + (float)(2 * Math.PI * bloatPct);
-            drawRingSegment(graphics, bloatCx, bloatCy, 5.8F, 7.8F, startAngle, endAngle, bloatColor);
+            drawRingSegment(graphics, cx, cy, 9.0F, 11.5F, startAngle, endAngle, bloatColor);
         }
+
+        // Draw Pulsing Spiritual Center Core
+        drawDisc(graphics, cx, cy, 8.0F, 0xCC080D14);
+        float pulse = 0.35F + 0.2F * (float) Math.sin(time * 0.005F);
+        int glowColor = (int)(pulse * 255) << 24 | (stabilityColor & 0xFFFFFF);
+        drawDisc(graphics, cx, cy, 4.5F, glowColor);
+
+        // Render Aligned Status Text Labels next to the Mandala
+        int textX = startX + 46;
         
-        // Draw centered 'B'
-        String letterB = "B";
-        float bX = bloatCx - font.width(letterB) / 2.0F + 0.5F;
-        float bY = bloatCy - 4.0F;
-        graphics.drawString(font, letterB, bX, bY, 0xFFF8BBD0, true);
-        
-        // Draw Bloat Text Label
-        graphics.drawString(font, "Bloat: ", bloatCx + 14, bloatCy - 4, 0xFFCFD8DC, true);
-        graphics.drawString(font, Math.round(bloat) + "%", bloatCx + 14 + font.width("Bloat: "), bloatCy - 4, 0xFFF8BBD0, true);
+        // Stability line
+        graphics.drawString(font, "Stability:", textX, (int)cy - 12, 0xFFCFD8DC, true);
+        graphics.drawString(font, Math.round(stability) + "%", textX + font.width("Stability: "), (int)cy - 12, stabilityColor, true);
+
+        // Contamination line
+        graphics.drawString(font, "Contamination:", textX, (int)cy - 2, 0xFFCFD8DC, true);
+        graphics.drawString(font, Math.round(contamination) + "%", textX + font.width("Contamination: "), (int)cy - 2, 0xFFB388FF, true);
+
+        // Bloat line
+        graphics.drawString(font, "Bloat:", textX, (int)cy + 8, 0xFFCFD8DC, true);
+        graphics.drawString(font, Math.round(bloat) + "%", textX + font.width("Bloat: "), (int)cy + 8, 0xFFFF80AB, true);
     }
 
     private static void tickAndRenderSparks(GuiGraphics graphics) {

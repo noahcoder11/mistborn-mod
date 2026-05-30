@@ -1,6 +1,0 @@
-{
-  "parent": "minecraft:block/cube_all",
-  "textures": {
-    "all": "mistborn_metal_arts:block/atium_crystal_cluster"
-  }
-}

@@ -58,7 +58,6 @@ public final class ModItems {
     public static final RegistryObject<Item> SPIKE_PRESS = blockItem("spike_press", ModBlocks.SPIKE_PRESS);
     public static final RegistryObject<Item> HEMALURGIC_ALTAR = blockItem("hemalurgic_altar", ModBlocks.HEMALURGIC_ALTAR);
     public static final RegistryObject<Item> BLOOD_PRESERVATION_TANK = ITEMS.register("blood_preservation_tank", () -> new com.not_noah.mistborn_metal_arts.item.BloodPreservationTankItem(ModBlocks.BLOOD_PRESERVATION_TANK.get(), new Item.Properties()));
-    public static final RegistryObject<Item> ATIUM_GEODE_CLUSTER = blockItem("atium_geode_cluster", ModBlocks.ATIUM_GEODE_CLUSTER);
     public static final RegistryObject<Item> ATIUM_GEODE = blockItem("atium_geode", ModBlocks.ATIUM_GEODE);
     public static final RegistryObject<Item> BUDDING_ATIUM = blockItem("budding_atium", ModBlocks.BUDDING_ATIUM);
     public static final RegistryObject<Item> ATIUM_CLUSTER = blockItem("atium_cluster", ModBlocks.ATIUM_CLUSTER);

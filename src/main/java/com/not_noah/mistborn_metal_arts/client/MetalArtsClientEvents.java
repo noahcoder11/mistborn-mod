@@ -64,7 +64,6 @@ public final class MetalArtsClientEvents {
         event.enqueueWork(() -> {
             MenuScreens.register(ModMenus.METAL_ARTS_MACHINE.get(), MetalArtsMachineScreen::new);
             net.minecraft.client.renderer.ItemBlockRenderTypes.setRenderLayer(ModBlocks.ATIUM_CLUSTER.get(), RenderType.cutout());
-            net.minecraft.client.renderer.ItemBlockRenderTypes.setRenderLayer(ModBlocks.ATIUM_GEODE_CLUSTER.get(), RenderType.cutout());
             net.minecraft.client.renderer.ItemBlockRenderTypes.setRenderLayer(ModBlocks.BLOOD_VIAL.get(), RenderType.translucent());
             net.minecraft.client.renderer.ItemBlockRenderTypes.setRenderLayer(ModBlocks.ALUMINUM_CASING.get(), RenderType.cutout());
         });

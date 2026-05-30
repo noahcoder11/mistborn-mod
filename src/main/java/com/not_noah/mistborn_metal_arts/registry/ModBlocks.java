@@ -16,7 +16,6 @@ public final class ModBlocks {
 
     public static final RegistryObject<Block> SPIKE_PRESS = machine("spike_press", 5.0F);
     public static final RegistryObject<Block> HEMALURGIC_ALTAR = BLOCKS.register("hemalurgic_altar", () -> new com.not_noah.mistborn_metal_arts.block.HemalurgicAltarBlock(BlockBehaviour.Properties.of().strength(5.0F, 12.0F).sound(SoundType.METAL).noOcclusion().isSuffocating((state, level, pos) -> false).isViewBlocking((state, level, pos) -> false).lightLevel(state -> 12)));
-    public static final RegistryObject<Block> ATIUM_GEODE_CLUSTER = BLOCKS.register("atium_geode_cluster", () -> new Block(BlockBehaviour.Properties.of().strength(4.0F, 8.0F).sound(SoundType.AMETHYST)));
     public static final RegistryObject<Block> ATIUM_GEODE = BLOCKS.register("atium_geode", () -> new Block(BlockBehaviour.Properties.of().strength(4.0F, 8.0F).sound(SoundType.AMETHYST).requiresCorrectToolForDrops()));
     public static final RegistryObject<Block> BUDDING_ATIUM = BLOCKS.register("budding_atium", () -> new net.minecraft.world.level.block.BuddingAmethystBlock(BlockBehaviour.Properties.of().strength(4.0F, 8.0F).sound(SoundType.AMETHYST).randomTicks().requiresCorrectToolForDrops()));
     public static final RegistryObject<Block> ATIUM_CLUSTER = BLOCKS.register("atium_cluster", () -> new net.minecraft.world.level.block.AmethystClusterBlock(7, 3, BlockBehaviour.Properties.of().strength(2.0F).sound(SoundType.AMETHYST_CLUSTER).noOcclusion().lightLevel(state -> 5).requiresCorrectToolForDrops()));
