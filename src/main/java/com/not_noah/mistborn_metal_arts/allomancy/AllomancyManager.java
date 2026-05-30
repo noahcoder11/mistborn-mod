@@ -49,6 +49,7 @@ public final class AllomancyManager {
     public static final UUID PEWTER_KNOCKBACK_MODIFIER_UUID = UUID.fromString("d8ffe4f3-22a6-4c5c-9429-0d039b95bd90");
     public static final UUID PEWTER_DRAG_SPEED_MODIFIER_UUID = UUID.fromString("d8ffe4f4-22a6-4c5c-9429-0d039b95bd90");
     public static final UUID PEWTER_DRAG_ATTACK_MODIFIER_UUID = UUID.fromString("d8ffe4f5-22a6-4c5c-9429-0d039b95bd90");
+    public static final UUID PEWTER_DRAG_HEALTH_MODIFIER_UUID = UUID.fromString("d8ffe4f6-22a6-4c5c-9429-0d039b95bd90");
 
     private static final DustParticleOptions COPPER_DUST = new DustParticleOptions(new Vector3f(0.65F, 0.32F, 0.12F), 0.8F);
     private static final DustParticleOptions ATIUM_DUST = new DustParticleOptions(new Vector3f(0.65F, 1.0F, 0.85F), 0.9F);
@@ -61,7 +62,10 @@ public final class AllomancyManager {
             switch (action) {
                 case SELECT -> data.setSelectedMetal(metal);
                 case START_BURN -> startBurn(player, data, metal);
-                case STOP_BURN -> data.stopBurning(metal);
+                case STOP_BURN -> {
+                    handleDeactivation(player, data, metal);
+                    data.stopBurning(metal);
+                }
                 case TOGGLE_FLARE -> data.setFlaring(metal, !data.isFlaring(metal));
                 case CYCLE -> data.setSelectedMetal(nextMetal(data, data.selectedMetal()));
                 case PUSH_PULL -> handlePushPull(player, data, metal);
@@ -70,7 +74,12 @@ public final class AllomancyManager {
                 case PURGE -> purge(player, data, true);
                 case TIME_BUBBLE -> activateTimeBubbleStub(player, data, metal);
                 case TOGGLE_FERUCHEMY -> toggleFeruchemy(player, data, metal);
-                case STOP_ALL -> data.stopAllBurning();
+                case STOP_ALL -> {
+                    for (Metal m : EnumSet.copyOf(data.burningMetals())) {
+                        handleDeactivation(player, data, m);
+                    }
+                    data.stopAllBurning();
+                }
             }
             MetalArtsNetwork.sync(player);
         });
@@ -84,10 +93,19 @@ public final class AllomancyManager {
         boolean isBurningPewter = data.isBurning(Metal.PEWTER) && data.getReserve(Metal.PEWTER) > 0F;
         if (isBurningPewter) {
             data.setPewterBurnDuration(data.pewterBurnDuration() + 1);
+            if (data.pewterDragTicks() > 0) {
+                data.setPewterDragTicks(0);
+                player.removeEffect(ModEffects.PEWTER_DRAG.get());
+                player.removeEffect(MobEffects.WEAKNESS);
+                player.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+                player.removeEffect(MobEffects.DIG_SLOWDOWN);
+                changed = true;
+            }
         } else {
             if (data.pewterBurnDuration() > 0) {
-                // Trigger Pewter Drag on turn-off if burned continuously for 2+ minutes (2400 ticks)
-                if (data.pewterBurnDuration() > 2400) {
+                // Trigger standard Pewter Drag on turn-off if burned continuously for 2+ minutes (2400 ticks) and NOT a savant (since savant handles it in handleDeactivation)
+                int stage = data.savantStage(Metal.PEWTER);
+                if (stage < 2 && data.pewterBurnDuration() > 2400) {
                     data.setPewterDragTicks(data.pewterBurnDuration() * 2);
                     player.addEffect(new MobEffectInstance(ModEffects.PEWTER_DRAG.get(), data.pewterBurnDuration() * 2, 0, false, true));
                 }
@@ -110,6 +128,7 @@ public final class AllomancyManager {
         updatePewterAttributes(player, data);
         for (Metal metal : EnumSet.copyOf(data.burningMetals())) {
             if (!data.hasAllomanticPower(metal) || data.getReserve(metal) <= 0F || !ServerConfig.isMetalEnabled(metal)) {
+                handleDeactivation(player, data, metal);
                 data.stopBurning(metal);
                 changed = true;
                 continue;
@@ -121,6 +140,7 @@ public final class AllomancyManager {
             data.consumeReserve(metal, ServerConfig.burnRate(metal) * multiplier);
             applyContinuousEffect(player, data, metal);
             if (data.getReserve(metal) <= 0F) {
+                handleDeactivation(player, data, metal);
                 onReserveEmpty(player, data, metal);
                 changed = true;
             }
@@ -216,6 +236,7 @@ public final class AllomancyManager {
         for (Metal metal : active) {
             float consumed = data.getReserve(metal);
             data.consumeReserve(metal, consumed);
+            handleDeactivation(player, data, metal);
             data.stopBurning(metal);
             switch (metal) {
                 case STEEL -> MetalForceHelper.applyRadialForce(player, false, consumed / 30F + 2.5F);
@@ -232,6 +253,33 @@ public final class AllomancyManager {
                 case COPPER -> player.addEffect(new MobEffectInstance(ModEffects.COPPERCLOUD.get(), 220, 1, false, true));
                 case BRONZE -> wideBronzePing(player, data);
                 case ATIUM -> player.addEffect(new MobEffectInstance(ModEffects.ATIUM_SIGHT.get(), 80, 2, false, true));
+                case TRELLIUM -> {
+                    // Absolute spiritual invisibility for 15 seconds
+                    player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 300, 1, false, true));
+                    player.displayClientMessage(Component.translatable("message.mistborn_metal_arts.trellium_burst"), true);
+                }
+                case RAYSIUM -> {
+                    // Siphon 30% max health from all entities in 12-block radius
+                    double radius = 12.0D;
+                    AABB area = player.getBoundingBox().inflate(radius);
+                    float totalHealed = 0F;
+                    for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, area, e -> e != player && e.isAlive())) {
+                        float siphon = target.getMaxHealth() * 0.3F;
+                        target.hurt(player.damageSources().magic(), siphon);
+                        totalHealed += siphon * 0.5F;
+                    }
+                    player.heal(Math.min(totalHealed, player.getMaxHealth()));
+                    player.displayClientMessage(Component.translatable("message.mistborn_metal_arts.raysium_burst"), true);
+                }
+                case TANAVASTIUM -> {
+                    // Instantly repair Soul Stability to 100% and grant temporary protection
+                    player.getCapability(MetalArtsCapabilities.METAL_ARTS).ifPresent(d -> {
+                        d.setSoulStability(ServerConfig.VALUES.soulStabilityBaseMax.get().floatValue());
+                    });
+                    player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 200, 3, false, true));
+                    player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 200, 4, false, true));
+                    player.displayClientMessage(Component.translatable("message.mistborn_metal_arts.tanavastium_burst"), true);
+                }
                 default -> player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 60, 0, false, true));
             }
         }
@@ -263,7 +311,7 @@ public final class AllomancyManager {
     }
 
     private static void shootMetalItem(ServerPlayer player, MetalArtsData data, ItemStack stack) {
-        float strength = data.getEffectiveStrength();
+        float strength = data.getEffectiveStrength(Metal.STEEL);
         float flareFactor = data.isFlaring(Metal.STEEL) ? 1.85F : 1.0F;
 
         ItemStack shot = stack.copy();
@@ -323,6 +371,31 @@ public final class AllomancyManager {
             case BRASS -> applyBrass(player, data, amplifier);
             case GOLD -> player.addEffect(new MobEffectInstance(ModEffects.GOLD_SIGHT.get(), 40, amplifier, false, true));
             case ELECTRUM -> player.addEffect(new MobEffectInstance(ModEffects.ELECTRUM_SIGHT.get(), 40, amplifier, false, true));
+            case TRELLIUM -> {
+                // Spiritual stealth — apply invisibility effect while burning
+                player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 40, 0, false, false));
+                // Mark as copperclouded to hide from bronze seekers
+                data.setCopperclouded(true);
+            }
+            case RAYSIUM -> {
+                // Passive siphoning aura — heal slightly and damage nearby hostiles
+                if (player.tickCount % 40 == 0) {
+                    double radius = 6.0D;
+                    AABB area = player.getBoundingBox().inflate(radius);
+                    for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, area, e -> e != player && e.isAlive())) {
+                        if (target instanceof net.minecraft.world.entity.monster.Monster) {
+                            target.hurt(player.damageSources().magic(), 1.0F + amplifier);
+                            player.heal(0.5F + amplifier * 0.5F);
+                        }
+                    }
+                }
+            }
+            case TANAVASTIUM -> {
+                // Soul Stability active burn bonus — recalculate stability with bonus
+                // The actual bonus is handled in SoulStabilityManager.recalculateStability()
+                // Here we just apply a visual/protective effect
+                player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 40, amplifier, false, false));
+            }
             default -> {
             }
         }
@@ -408,7 +481,7 @@ public final class AllomancyManager {
         List<net.minecraft.world.entity.npc.Villager> villagers = player.level().getEntitiesOfClass(net.minecraft.world.entity.npc.Villager.class, area, entity -> entity.isAlive());
         for (net.minecraft.world.entity.npc.Villager villager : villagers) {
             if (villager.tickCount % 20 == 0) {
-                villager.getGossips().add(player.getUUID(), net.minecraft.world.entity.ai.gossip.GossipType.MINOR_POSITIVE, Math.round(5 * data.getEffectiveStrength()));
+                villager.getGossips().add(player.getUUID(), net.minecraft.world.entity.ai.gossip.GossipType.MINOR_POSITIVE, Math.round(5 * data.getEffectiveStrength(Metal.BRASS)));
             }
         }
 
@@ -437,6 +510,7 @@ public final class AllomancyManager {
         AttributeInstance kbInstance = player.getAttribute(Attributes.KNOCKBACK_RESISTANCE);
 
         boolean burningPewter = data.isBurning(Metal.PEWTER) && data.getReserve(Metal.PEWTER) > 0F;
+        int stage = data.savantStage(Metal.PEWTER);
 
         // 1. Remove standard pewter modifiers if not burning
         if (!burningPewter) {
@@ -458,11 +532,19 @@ public final class AllomancyManager {
             }
         } else {
             // Add or update modifiers based on allomantic strength
-            float strength = data.getEffectiveStrength();
+            float strength = data.getEffectiveStrength(Metal.PEWTER);
             float flareMult = data.isFlaring(Metal.PEWTER) ? 1.8F : 1.0F;
+
+            // Pewter Savant Stage 2+: passive healing
+            if (stage >= 2 && player.getHealth() < player.getMaxHealth()) {
+                player.heal(0.25F);
+            }
 
             // Speed: Multiply base by (1.0 + 0.25 * strength * flareMult)
             double speedAmt = 0.25D * strength * flareMult;
+            if (stage == 4) {
+                speedAmt *= 2.0D; // double speed boost for extreme savant
+            }
             if (speedInstance != null) {
                 AttributeModifier mod = speedInstance.getModifier(PEWTER_SPEED_MODIFIER_UUID);
                 if (mod == null || Math.abs(mod.getAmount() - speedAmt) > 0.001D) {
@@ -474,6 +556,9 @@ public final class AllomancyManager {
 
             // Attack Damage: Add flat (4.0 * strength * flareMult)
             double attackAmt = 4.0D * strength * flareMult;
+            if (stage == 4 && player.getMainHandItem().isEmpty()) {
+                attackAmt += 7.0D; // diamond sword equivalent unarmed
+            }
             if (attackInstance != null) {
                 AttributeModifier mod = attackInstance.getModifier(PEWTER_ATTACK_MODIFIER_UUID);
                 if (mod == null || Math.abs(mod.getAmount() - attackAmt) > 0.001D) {
@@ -498,6 +583,9 @@ public final class AllomancyManager {
 
             // Knockback Resistance: Add flat (0.5 * strength * flareMult)
             double kbAmt = 0.5D * strength * flareMult;
+            if (stage >= 3) {
+                kbAmt = 1.0D; // 100% knockback resistance for true savants
+            }
             if (kbInstance != null) {
                 AttributeModifier mod = kbInstance.getModifier(PEWTER_KNOCKBACK_MODIFIER_UUID);
                 if (mod == null || Math.abs(mod.getAmount() - kbAmt) > 0.001D) {
@@ -517,6 +605,13 @@ public final class AllomancyManager {
             if (attackInstance != null && attackInstance.getModifier(PEWTER_DRAG_ATTACK_MODIFIER_UUID) != null) {
                 attackInstance.removeModifier(PEWTER_DRAG_ATTACK_MODIFIER_UUID);
             }
+            if (healthInstance != null && healthInstance.getModifier(PEWTER_DRAG_HEALTH_MODIFIER_UUID) != null) {
+                float currentHealthPercent = player.getHealth() / player.getMaxHealth();
+                healthInstance.removeModifier(PEWTER_DRAG_HEALTH_MODIFIER_UUID);
+                if (player.getHealth() > player.getMaxHealth()) {
+                    player.setHealth(currentHealthPercent * player.getMaxHealth());
+                }
+            }
         } else {
             // Speed: Multiply base by (1.0 - 0.90) = 90% reduction
             if (speedInstance != null && speedInstance.getModifier(PEWTER_DRAG_SPEED_MODIFIER_UUID) == null) {
@@ -528,12 +623,72 @@ public final class AllomancyManager {
                 attackInstance.addTransientModifier(new AttributeModifier(
                     PEWTER_DRAG_ATTACK_MODIFIER_UUID, "Pewter Drag Weakness", -0.75D, AttributeModifier.Operation.MULTIPLY_TOTAL));
             }
+
+            // Savant Drag Penalties: severe mining fatigue, slowness, and max health reduction
+            if (stage >= 2) {
+                int fatigueLevel = stage - 2; // stage 2 -> level 0 (I), stage 3 -> level 1 (II), stage 4 -> level 2 (III)
+                int slownessLevel = stage - 1; // stage 2 -> level 1 (II), stage 3 -> level 2 (III), stage 4 -> level 3 (IV)
+                player.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, 40, fatigueLevel, true, false));
+                player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, slownessLevel, true, false));
+
+                double dragHealthPenalty = -2.0D * stage; // Stage 2: -4, Stage 3: -6, Stage 4: -8 max health
+                if (healthInstance != null && healthInstance.getModifier(PEWTER_DRAG_HEALTH_MODIFIER_UUID) == null) {
+                    float currentHealthPercent = player.getHealth() / player.getMaxHealth();
+                    healthInstance.addTransientModifier(new AttributeModifier(
+                        PEWTER_DRAG_HEALTH_MODIFIER_UUID, "Pewter Drag Health Penalty", dragHealthPenalty, AttributeModifier.Operation.ADDITION));
+                    
+                    float newHealth = currentHealthPercent * player.getMaxHealth();
+                    if (newHealth <= 0.0F) {
+                        player.hurt(player.damageSources().magic(), 1000.0F); // Lethal drag collapse!
+                    } else {
+                        player.setHealth(newHealth);
+                    }
+                }
+            }
         }
     }
 
     private static void applyTin(ServerPlayer player, MetalArtsData data, int amplifier) {
         player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 240, 0, false, false));
         
+        int stage = data.savantStage(Metal.TIN);
+
+        // Tin Savant Stage 2+ Penalty: bright light sensitivity
+        if (stage >= 2) {
+            boolean isSunlit = player.level().isDay() && player.level().canSeeSky(player.blockPosition());
+            boolean nearLava = player.level().getBlockState(player.blockPosition()).is(net.minecraft.world.level.block.Blocks.LAVA) 
+                    || player.level().getBlockState(player.blockPosition().below()).is(net.minecraft.world.level.block.Blocks.LAVA);
+            if (isSunlit || nearLava) {
+                if (player.tickCount % 60 == 0) {
+                    player.hurt(player.damageSources().magic(), 0.5F);
+                    player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 100, 0, true, false));
+                }
+            }
+        }
+
+        // Tin Savant Stage 3: Heartbeat detection (red hearts)
+        if (stage >= 3 && player.level() instanceof ServerLevel serverLevel && player.tickCount % 20 == 0) {
+            double hRange = 16.0D;
+            List<LivingEntity> nearbyHidden = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(hRange), 
+                entity -> entity != player && entity.isAlive() && !isCopperclouded(entity));
+            for (LivingEntity entity : nearbyHidden) {
+                double ex = entity.getX();
+                double ey = entity.getY() + entity.getBbHeight() * 0.5D;
+                double ez = entity.getZ();
+                serverLevel.sendParticles(player, net.minecraft.core.particles.ParticleTypes.HEART, false, ex, ey, ez, 1, 0.1D, 0.1D, 0.1D, 0D);
+            }
+        }
+
+        // Tin Savant Stage 4: Echolocation (periodically glows entities through walls)
+        if (stage == 4 && player.tickCount % 60 == 0) {
+            double eRange = 24.0D;
+            List<LivingEntity> nearbyGlow = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(eRange), 
+                entity -> entity != player && entity.isAlive() && !isCopperclouded(entity));
+            for (LivingEntity entity : nearbyGlow) {
+                entity.addEffect(new MobEffectInstance(MobEffects.GLOWING, 60, 0, false, false, false));
+            }
+        }
+
         // Tin Sound Waves Visualizer: Spawn beautiful sculk-vibration sound particles traveling to the player's ears!
         if (player.level() instanceof ServerLevel serverLevel && player.tickCount % 4 == 0) {
             double range = data.isFlaring(Metal.TIN) ? 32.0D : 16.0D;
@@ -644,10 +799,13 @@ public final class AllomancyManager {
     private static void onReserveEmpty(ServerPlayer player, MetalArtsData data, Metal metal) {
         data.stopBurning(metal);
         if (metal == Metal.PEWTER) {
-            data.setPewterDragTicks(220);
-            player.addEffect(new MobEffectInstance(ModEffects.PEWTER_DRAG.get(), 220, 0, false, true));
-            player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 220, 0, false, true));
-            player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 220, 0, false, true));
+            int stage = data.savantStage(Metal.PEWTER);
+            if (stage < 2) {
+                data.setPewterDragTicks(220);
+                player.addEffect(new MobEffectInstance(ModEffects.PEWTER_DRAG.get(), 220, 0, false, true));
+                player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 220, 0, false, true));
+                player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 220, 0, false, true));
+            }
         }
     }
 
@@ -696,11 +854,38 @@ public final class AllomancyManager {
     }
 
     private static boolean isDetectable(ServerPlayer seeker, LivingEntity entity) {
-        if (entity.hasEffect(ModEffects.COPPERCLOUD.get())) {
+        // Trellium spiritual stealth — blocks ALL detection
+        boolean trelliumShielded = entity.getCapability(MetalArtsCapabilities.METAL_ARTS)
+                .map(data -> data.isBurning(Metal.TRELLIUM) || data.installedSpikes().stream().anyMatch(s -> s.spikeMetal() == Metal.TRELLIUM))
+                .orElse(false);
+        if (trelliumShielded) {
             return false;
         }
+
+        int seekerBronzeSavant = seeker.getCapability(MetalArtsCapabilities.METAL_ARTS)
+                .map(d -> d.savantStage(Metal.BRONZE))
+                .orElse(0);
+        int targetCopperSavant = entity.getCapability(MetalArtsCapabilities.METAL_ARTS)
+                .map(d -> d.savantStage(Metal.COPPER))
+                .orElse(0);
+
+        boolean copperShielded = entity.hasEffect(ModEffects.COPPERCLOUD.get());
+        if (!copperShielded) {
+            copperShielded = entity.getCapability(MetalArtsCapabilities.METAL_ARTS)
+                    .map(data -> data.isCopperclouded())
+                    .orElse(false);
+        }
+
+        if (copperShielded) {
+            if (seekerBronzeSavant >= 3 && targetCopperSavant < 3) {
+                // Pierced the coppercloud!
+            } else {
+                return false;
+            }
+        }
+
         return entity.getCapability(MetalArtsCapabilities.METAL_ARTS)
-                .map(data -> !data.isCopperclouded() && (!data.burningMetals().isEmpty() || data.totalCorruption() > 0))
+                .map(data -> !data.burningMetals().isEmpty() || data.totalCorruption() > 0)
                 .orElse(entity.hasEffect(ModEffects.ATIUM_SIGHT.get()) || entity.hasEffect(ModEffects.BRONZE_SEEKING.get()));
     }
 
@@ -831,6 +1016,29 @@ public final class AllomancyManager {
                     
                     level.sendParticles(pType, x, y, z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
                 }
+            }
+        }
+    }
+
+    public static void handleDeactivation(ServerPlayer player, MetalArtsData data, Metal metal) {
+        if (!data.isBurning(metal)) {
+            return;
+        }
+        if (metal == Metal.TIN) {
+            int stage = data.savantStage(Metal.TIN);
+            if (stage >= 2) {
+                player.addEffect(new MobEffectInstance(MobEffects.DARKNESS, 200, 0, false, true));
+                player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 100, 0, false, true));
+                player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 200, 0, false, true));
+            }
+        } else if (metal == Metal.PEWTER) {
+            int stage = data.savantStage(Metal.PEWTER);
+            if (stage >= 2) {
+                int dragDuration = 1000 + (data.pewterBurnDuration() * 2);
+                data.setPewterDragTicks(dragDuration);
+                player.addEffect(new MobEffectInstance(ModEffects.PEWTER_DRAG.get(), dragDuration, 0, false, true));
+                player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, dragDuration, 0, false, true));
+                player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, dragDuration, 0, false, true));
             }
         }
     }

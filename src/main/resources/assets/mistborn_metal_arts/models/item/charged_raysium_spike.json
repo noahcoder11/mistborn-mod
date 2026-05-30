@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/handheld",
+  "textures": {
+    "layer0": "mistborn_metal_arts:item/charged_raysium_spike"
+  }
+}

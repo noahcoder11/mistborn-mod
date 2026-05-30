@@ -47,6 +47,7 @@ import com.not_noah.mistborn_metal_arts.client.model.*;
 import com.not_noah.mistborn_metal_arts.client.render.KolossRenderer;
 import com.not_noah.mistborn_metal_arts.client.render.SteelInquisitorRenderer;
 import com.not_noah.mistborn_metal_arts.entity.MetalbornRole;
+import com.not_noah.mistborn_metal_arts.capability.MetalArtsData;
 import com.not_noah.mistborn_metal_arts.client.screen.MetalArtsMachineScreen;
 import com.not_noah.mistborn_metal_arts.registry.ModMenus;
 import net.minecraft.client.gui.screens.MenuScreens;
@@ -124,13 +125,14 @@ public final class MetalArtsClientEvents {
 
     @SubscribeEvent
     public static void registerLayers(EntityRenderersEvent.AddLayers event) {
-        // Add BloodOverlayLayer and BloodArrowLayer to all LivingEntity renderers (players, mobs, armor stands)
+        // Add BloodOverlayLayer, BloodArrowLayer, and StuckSpikesLayer to all LivingEntity renderers (players, mobs, armor stands)
         for (String skin : event.getSkins()) {
             net.minecraft.client.renderer.entity.EntityRenderer<?> renderer = event.getSkin(skin);
             if (renderer instanceof LivingEntityRenderer) {
                 LivingEntityRenderer livingRenderer = (LivingEntityRenderer) renderer;
                 livingRenderer.addLayer(new com.not_noah.mistborn_metal_arts.client.render.BloodOverlayLayer(livingRenderer));
                 livingRenderer.addLayer(new com.not_noah.mistborn_metal_arts.client.render.BloodArrowLayer(livingRenderer));
+                livingRenderer.addLayer(new com.not_noah.mistborn_metal_arts.client.render.StuckSpikesLayer(livingRenderer));
             }
         }
         for (net.minecraft.world.entity.EntityType<?> type : net.minecraftforge.registries.ForgeRegistries.ENTITY_TYPES) {
@@ -140,6 +142,7 @@ public final class MetalArtsClientEvents {
                     LivingEntityRenderer livingRenderer = (LivingEntityRenderer) renderer;
                     livingRenderer.addLayer(new com.not_noah.mistborn_metal_arts.client.render.BloodOverlayLayer(livingRenderer));
                     livingRenderer.addLayer(new com.not_noah.mistborn_metal_arts.client.render.BloodArrowLayer(livingRenderer));
+                    livingRenderer.addLayer(new com.not_noah.mistborn_metal_arts.client.render.StuckSpikesLayer(livingRenderer));
                 }
             } catch (Exception e) {
                 // Ignore entities that don't have registered renderers yet or fail
@@ -168,6 +171,16 @@ public final class MetalArtsClientEvents {
         public record PathFrame(Vec3 pos, float yRot, float xRot) {}
         public static final java.util.LinkedList<PathFrame> PAST_FRAMES = new java.util.LinkedList<>();
         private static boolean lastTickHazard = false;
+
+        private static class EntityRenderState {
+            final net.minecraft.world.entity.Pose pose;
+            final java.util.Optional<net.minecraft.core.BlockPos> sleepingPos;
+            EntityRenderState(net.minecraft.world.entity.Pose pose, java.util.Optional<net.minecraft.core.BlockPos> sleepingPos) {
+                this.pose = pose;
+                this.sleepingPos = sleepingPos;
+            }
+        }
+        private static final java.util.Map<Integer, EntityRenderState> originalStates = new java.util.HashMap<>();
 
         private static java.lang.reflect.Field mainHandItemField = null;
         private static java.lang.reflect.Field offHandItemField = null;
@@ -248,8 +261,8 @@ public final class MetalArtsClientEvents {
             }
 
             while (MetalArtsKeyMappings.OPEN_MENU.consumeClick()) {
-                var data = ClientMetalArtsData.data();
-                if (!data.allomanticPowers().isEmpty() || !data.feruchemicalPowers().isEmpty()) {
+                MetalArtsData data = ClientMetalArtsData.data();
+                if (!data.allomanticPowersRaw().isEmpty() || !data.feruchemicalPowers().isEmpty()) {
                     Minecraft.getInstance().setScreen(new MetalArtsRadialScreen());
                 }
             }
@@ -293,6 +306,59 @@ public final class MetalArtsClientEvents {
                 if (player.hasEffect(ModEffects.EMOTIONAL_SOOTHE.get())) {
                     player.setSprinting(false);
                     Minecraft.getInstance().options.keySprint.setDown(false);
+                }
+            }
+        }
+
+        @SubscribeEvent
+        public static void onRenderLivingPre(RenderLivingEvent.Pre<?, ?> event) {
+            LivingEntity entity = event.getEntity();
+            net.minecraft.nbt.CompoundTag nbt = entity.getPersistentData();
+            if (nbt.getBoolean("ClientRestrained")) {
+                net.minecraft.core.BlockPos altarPos = net.minecraft.core.BlockPos.of(nbt.getLong("ClientAltarPos"));
+                net.minecraft.world.level.block.state.BlockState state = entity.level().getBlockState(altarPos);
+                if (state.is(com.not_noah.mistborn_metal_arts.registry.ModBlocks.HEMALURGIC_ALTAR.get())) {
+                    originalStates.put(entity.getId(), new EntityRenderState(entity.getPose(), entity.getSleepingPos()));
+
+                    net.minecraft.core.Direction facing = state.getValue(com.not_noah.mistborn_metal_arts.block.HemalurgicAltarBlock.FACING);
+                    net.minecraft.core.BlockPos headPos = altarPos.relative(facing);
+                    
+                    if (entity.getSleepingPos().isEmpty() || !entity.getSleepingPos().get().equals(headPos)) {
+                        entity.setSleepingPos(headPos);
+                    }
+                    entity.setPose(net.minecraft.world.entity.Pose.SLEEPING);
+                    
+                    // Force entity alignment rotations on the client
+                    float yaw = facing.toYRot();
+                    entity.setYRot(yaw);
+                    entity.setXRot(0.0F);
+                    entity.yRotO = yaw;
+                    entity.xRotO = 0.0F;
+                    entity.setYBodyRot(yaw);
+                    entity.setYHeadRot(yaw);
+                }
+            } else {
+                if (entity.getPose() == net.minecraft.world.entity.Pose.SLEEPING) {
+                    boolean isVanillaSleeping = entity.getSleepingPos().isPresent() && 
+                                                !(entity.level().getBlockState(entity.getSleepingPos().get()).is(com.not_noah.mistborn_metal_arts.registry.ModBlocks.HEMALURGIC_ALTAR.get()));
+                    if (!isVanillaSleeping) {
+                        entity.setPose(net.minecraft.world.entity.Pose.STANDING);
+                        entity.clearSleepingPos();
+                    }
+                }
+            }
+        }
+
+        @SubscribeEvent
+        public static void onRenderLivingPost(RenderLivingEvent.Post<?, ?> event) {
+            LivingEntity entity = event.getEntity();
+            EntityRenderState originalState = originalStates.remove(entity.getId());
+            if (originalState != null) {
+                entity.setPose(originalState.pose);
+                if (originalState.sleepingPos.isPresent()) {
+                    entity.setSleepingPos(originalState.sleepingPos.get());
+                } else {
+                    entity.clearSleepingPos();
                 }
             }
         }
@@ -444,6 +510,150 @@ public final class MetalArtsClientEvents {
         }
 
         @SubscribeEvent
+        public static void renderTinHealthBars(RenderLivingEvent.Post<?, ?> event) {
+            LocalPlayer localPlayer = Minecraft.getInstance().player;
+            if (localPlayer == null) return;
+
+            MetalArtsData data = ClientMetalArtsData.data();
+            if (data.isBurning(Metal.TIN) && data.savantStage(Metal.TIN) >= 2) {
+                LivingEntity target = event.getEntity();
+                if (target == localPlayer || !target.isAlive() || target.isInvisibleTo(localPlayer)) {
+                    return;
+                }
+
+                double distSqr = Minecraft.getInstance().getEntityRenderDispatcher().distanceToSqr(target);
+                if (distSqr > 4096.0D) {
+                    return;
+                }
+
+                PoseStack poseStack = event.getPoseStack();
+                poseStack.pushPose();
+                
+                float heightOffset = target.getNameTagOffsetY();
+                if (target.hasCustomName() || target instanceof Player) {
+                    heightOffset += 0.3F;
+                }
+                
+                poseStack.translate(0.0D, heightOffset, 0.0D);
+                poseStack.mulPose(Minecraft.getInstance().getEntityRenderDispatcher().cameraOrientation());
+                poseStack.scale(-0.025F, -0.025F, 0.025F);
+                
+                org.joml.Matrix4f matrix = poseStack.last().pose();
+                net.minecraft.client.gui.Font font = Minecraft.getInstance().font;
+                
+                float health = target.getHealth();
+                float maxHealth = target.getMaxHealth();
+                
+                String healthText = String.format("%.1f / %.1f", health, maxHealth);
+                net.minecraft.network.chat.Component component = net.minecraft.network.chat.Component.literal("[")
+                        .append(net.minecraft.network.chat.Component.literal(healthText).withStyle(net.minecraft.ChatFormatting.RED))
+                        .append(net.minecraft.network.chat.Component.literal("]"));
+                
+                float width = font.width(component);
+                float x = -width / 2.0F;
+                
+                float bgOpacity = Minecraft.getInstance().options.getBackgroundOpacity(0.25F);
+                int bgColor = (int)(bgOpacity * 255.0F) << 24;
+                
+                font.drawInBatch(component, x, 0.0F, -1, false, matrix, event.getMultiBufferSource(), net.minecraft.client.gui.Font.DisplayMode.SEE_THROUGH, bgColor, event.getPackedLight());
+                font.drawInBatch(component, x, 0.0F, -1, false, matrix, event.getMultiBufferSource(), net.minecraft.client.gui.Font.DisplayMode.NORMAL, 0, event.getPackedLight());
+                
+                poseStack.popPose();
+            }
+        }
+
+        @SubscribeEvent
+        public static void renderSteelSavantOutlines(RenderLivingEvent.Post<?, ?> event) {
+            LocalPlayer localPlayer = Minecraft.getInstance().player;
+            if (localPlayer == null) return;
+            
+            MetalArtsData data = ClientMetalArtsData.data();
+            if (data.isBurning(Metal.STEEL) && data.savantStage(Metal.STEEL) >= 4) {
+                LivingEntity entity = event.getEntity();
+                if (entity == localPlayer || !entity.isAlive()) return;
+                
+                boolean hasMetal = false;
+                for (net.minecraft.world.item.ItemStack stack : entity.getArmorSlots()) {
+                    if (isMetallicStack(stack)) {
+                        hasMetal = true;
+                        break;
+                    }
+                }
+                if (isMetallicStack(entity.getMainHandItem()) || isMetallicStack(entity.getOffhandItem())) {
+                    hasMetal = true;
+                }
+                
+                if (hasMetal) {
+                    if (event.getRenderer() instanceof LivingEntityRenderer) {
+                        LivingEntityRenderer lr = (LivingEntityRenderer) event.getRenderer();
+                        RenderType type = RenderType.entityTranslucent(lr.getTextureLocation(entity));
+                        VertexConsumer buffer = event.getMultiBufferSource().getBuffer(type);
+                        PoseStack poseStack = event.getPoseStack();
+                        
+                        poseStack.pushPose();
+                        float r = 0.15F, g = 0.65F, b = 1.0F, alpha = 0.35F;
+                        
+                        lr.getModel().renderToBuffer(
+                            poseStack,
+                            buffer,
+                            15728880,
+                            LivingEntityRenderer.getOverlayCoords(entity, 0.0F),
+                            r, g, b, alpha
+                        );
+                        poseStack.popPose();
+                    }
+                }
+            }
+        }
+
+        private static void drawGlowingBlockBox(BufferBuilder buffer, PoseStack poseStack, BlockPos pos, Vec3 camPos, float r, float g, float b, float alpha) {
+            double x = pos.getX() - camPos.x;
+            double y = pos.getY() - camPos.y;
+            double z = pos.getZ() - camPos.z;
+            
+            double min = -0.01D;
+            double max = 1.01D;
+            
+            float faceAlpha = alpha * 0.15F;
+            
+            // South Face
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + min), (float)(z + max)).color(r, g, b, faceAlpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + min), (float)(z + max)).color(r, g, b, faceAlpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + max), (float)(z + max)).color(r, g, b, faceAlpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + max), (float)(z + max)).color(r, g, b, faceAlpha).endVertex();
+            
+            // North Face
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + min), (float)(z + min)).color(r, g, b, faceAlpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + max), (float)(z + min)).color(r, g, b, faceAlpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + max), (float)(z + min)).color(r, g, b, faceAlpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + min), (float)(z + min)).color(r, g, b, faceAlpha).endVertex();
+            
+            // East Face
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + min), (float)(z + min)).color(r, g, b, faceAlpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + max), (float)(z + min)).color(r, g, b, faceAlpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + max), (float)(z + max)).color(r, g, b, faceAlpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + min), (float)(z + max)).color(r, g, b, faceAlpha).endVertex();
+            
+            // West Face
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + min), (float)(z + min)).color(r, g, b, faceAlpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + min), (float)(z + max)).color(r, g, b, faceAlpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + max), (float)(z + max)).color(r, g, b, faceAlpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + max), (float)(z + min)).color(r, g, b, faceAlpha).endVertex();
+            
+            // Top Face
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + max), (float)(z + min)).color(r, g, b, faceAlpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + max), (float)(z + max)).color(r, g, b, faceAlpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + max), (float)(z + max)).color(r, g, b, faceAlpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + max), (float)(z + min)).color(r, g, b, faceAlpha).endVertex();
+            
+            // Bottom Face
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + min), (float)(z + min)).color(r, g, b, faceAlpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + min), (float)(z + min)).color(r, g, b, faceAlpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + min), (float)(z + max)).color(r, g, b, faceAlpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + min), (float)(z + max)).color(r, g, b, faceAlpha).endVertex();
+        }
+
+        @SubscribeEvent
         public static void renderAllomanticLines(RenderLevelStageEvent event) {
             if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
                 return;
@@ -474,6 +684,8 @@ public final class MetalArtsClientEvents {
             Vec3 chestPos = player.getEyePosition(event.getPartialTick()).subtract(0, 0.45D, 0);
 
             java.util.List<AllomanticLine> lines = new java.util.ArrayList<>();
+            java.util.List<BlockPos> outlinedBlocks = new java.util.ArrayList<>();
+            boolean steelSavant4 = ClientMetalArtsData.data().isBurning(Metal.STEEL) && ClientMetalArtsData.data().savantStage(Metal.STEEL) >= 4;
 
             // Metallic Entities
             for (Entity entity : player.level().getEntities(player, player.getBoundingBox().inflate(range), e -> e.isAlive() && MetalForceHelper.isMetallicEntity(e))) {
@@ -503,12 +715,16 @@ public final class MetalArtsClientEvents {
                         float massScale = 2.2F;
                         lines.add(new AllomanticLine(chestPos, targetPos, massScale, alphaFactor));
                         linesDrawn++;
+                        
+                        if (steelSavant4 && dist <= 16.0D) {
+                            outlinedBlocks.add(pos.immutable());
+                        }
                     }
                 }
                 if (linesDrawn >= maxLines) break;
             }
 
-            if (lines.isEmpty()) {
+            if (lines.isEmpty() && outlinedBlocks.isEmpty()) {
                 return;
             }
 
@@ -553,6 +769,12 @@ public final class MetalArtsClientEvents {
                     float coreAlpha = 0.85F * line.alphaFactor;
                     addBillboardedBeam(bufferBuilder, poseStack, line.start, line.end, camPos, wCore, r, g, b, coreAlpha);
                 }
+            }
+
+            for (BlockPos pos : outlinedBlocks) {
+                double dist = chestPos.distanceTo(Vec3.atCenterOf(pos));
+                float alphaFactor = (float) (1.0 - (dist / range));
+                drawGlowingBlockBox(bufferBuilder, poseStack, pos, camPos, r, g, b, 0.40F * alphaFactor);
             }
 
             tesselator.end();

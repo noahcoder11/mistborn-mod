@@ -357,6 +357,9 @@ public final class MetalArtsHudOverlay {
             case BENDALLOY -> 0xFFA500;
             case ATIUM -> 0x5B6B7C;
             case LERASIUM -> 0x8DF2FF;
+            case TRELLIUM -> 0x4A0E3B;
+            case RAYSIUM -> 0xFFD700;
+            case TANAVASTIUM -> 0x00CED1;
             default -> 0xCCCCCC;
         };
     }

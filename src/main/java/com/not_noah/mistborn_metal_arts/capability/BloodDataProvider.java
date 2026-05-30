@@ -24,11 +24,24 @@ public class BloodDataProvider implements ICapabilitySerializable<CompoundTag> {
     public CompoundTag serializeNBT() {
         CompoundTag nbt = new CompoundTag();
         nbt.putFloat("BloodLevel", bloodData.getBloodLevel());
+        net.minecraft.nbt.ListTag list = new net.minecraft.nbt.ListTag();
+        for (StuckSpike spike : bloodData.getStuckSpikes()) {
+            list.add(spike.serializeNBT());
+        }
+        nbt.put("StuckSpikes", list);
         return nbt;
     }
 
     @Override
     public void deserializeNBT(CompoundTag nbt) {
         bloodData.setBloodLevel(nbt.getFloat("BloodLevel"));
+        java.util.List<StuckSpike> spikes = new java.util.ArrayList<>();
+        if (nbt.contains("StuckSpikes", 9)) { // 9 is ListTag
+            net.minecraft.nbt.ListTag list = nbt.getList("StuckSpikes", 10); // 10 is CompoundTag
+            for (int i = 0; i < list.size(); i++) {
+                spikes.add(StuckSpike.deserializeNBT(list.getCompound(i)));
+            }
+        }
+        bloodData.setStuckSpikes(spikes);
     }
 }

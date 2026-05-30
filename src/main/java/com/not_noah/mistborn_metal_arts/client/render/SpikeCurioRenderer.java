@@ -30,7 +30,7 @@ public class SpikeCurioRenderer implements ICurioRenderer {
         int index = slotContext.index();
 
         switch (identifier) {
-            case "hemalurgic_eye" -> {
+            case "mental_quadrant" -> {
                 humanoidModel.head.translateAndRotate(poseStack);
                 if (index == 0) { // Right Eye
                     poseStack.translate(0.125D, -0.25D, -0.42D);
@@ -40,13 +40,13 @@ public class SpikeCurioRenderer implements ICurioRenderer {
                     poseStack.mulPose(Axis.YP.rotationDegrees(-12.0F));
                 }
             }
-            case "hemalurgic_heart" -> {
+            case "spiritual_quadrant" -> {
                 humanoidModel.body.translateAndRotate(poseStack);
                 poseStack.translate(0.14D, 0.32D, -0.25D);
                 poseStack.mulPose(Axis.YP.rotationDegrees(15.0F));
                 poseStack.mulPose(Axis.ZP.rotationDegrees(5.0F));
             }
-            case "hemalurgic_shoulder" -> {
+            case "physical_quadrant" -> {
                 if (index == 0) { // Right Shoulder
                     humanoidModel.rightArm.translateAndRotate(poseStack);
                     poseStack.translate(-0.05D, 0.05D, 0.0D);
@@ -57,7 +57,7 @@ public class SpikeCurioRenderer implements ICurioRenderer {
                     poseStack.mulPose(Axis.ZP.rotationDegrees(45.0F));
                 }
             }
-            case "hemalurgic_spine" -> {
+            case "temporal_quadrant" -> {
                 humanoidModel.body.translateAndRotate(poseStack);
                 // Spread out along the spine
                 double yOffset = 0.1D + (index * 0.25D);

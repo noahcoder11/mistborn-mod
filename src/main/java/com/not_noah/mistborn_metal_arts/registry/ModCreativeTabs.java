@@ -24,16 +24,14 @@ public final class ModCreativeTabs {
             .displayItems((parameters, output) -> {
                 output.accept(ModItems.EMPTY_GLASS_VIAL.get());
                 output.accept(ModItems.MIXED_METAL_VIAL.get());
-                output.accept(ModItems.ALLOMANCER_TESTING_KIT.get());
-                output.accept(ModItems.FERUCHEMIST_TESTING_KIT.get());
+                output.accept(ModItems.BLOOD_VIAL.get());
+                output.accept(ModItems.ALUMINUM_CASING.get());
+                output.accept(ModItems.BLOOD_PRESERVATION_TANK.get());
+                output.accept(ModItems.HEMALURGIC_MANUSCRIPT.get());
                 output.accept(ModItems.METAL_ARTS_GUIDEBOOK.get());
                 output.accept(ModItems.SPIKE_REMOVAL_TOOL.get());
-                output.accept(ModItems.METALLURGY_TABLE.get());
-                output.accept(ModItems.METALWORKING_TABLE.get());
-                output.accept(ModItems.ALLOY_FURNACE.get());
                 output.accept(ModItems.SPIKE_PRESS.get());
-                output.accept(ModItems.BIND_POINT_TABLE.get());
-                output.accept(ModItems.METALMIND_CHARGING_STAND.get());
+                output.accept(ModItems.HEMALURGIC_ALTAR.get());
                 output.accept(ModItems.ATIUM_GEODE_CLUSTER.get());
                 output.accept(ModItems.LERASIUM_CACHE_BLOCK.get());
                 output.accept(ModItems.METAL_CACHE.get());

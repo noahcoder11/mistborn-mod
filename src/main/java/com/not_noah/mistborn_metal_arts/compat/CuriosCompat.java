@@ -4,6 +4,7 @@ import com.not_noah.mistborn_metal_arts.MistbornMetalArts;
 import com.not_noah.mistborn_metal_arts.api.Metal;
 import com.not_noah.mistborn_metal_arts.capability.MetalArtsData;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -81,6 +82,19 @@ public final class CuriosCompat {
             return result instanceof ItemStack stack ? stack : ItemStack.EMPTY;
         } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException exception) {
             return ItemStack.EMPTY;
+        }
+    }
+
+    public static void replaceCurioStack(Player player, ItemStack original, ItemStack replacement) {
+        if (!isLoaded()) {
+            return;
+        }
+        try {
+            Class<?> clazz = Class.forName(COMMON_INTEGRATION);
+            Method method = clazz.getMethod("replaceCurioStack", Player.class, ItemStack.class, ItemStack.class);
+            method.invoke(null, player, original, replacement);
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException exception) {
+            MistbornMetalArts.LOGGER.warn("Failed to replace Curios stack.", exception);
         }
     }
 

@@ -8,6 +8,25 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class BloodData implements IBloodData {
     private float bloodLevel = 0.0f;
     private final List<BloodSlash> slashes = new CopyOnWriteArrayList<>();
+    private final List<StuckSpike> stuckSpikes = new CopyOnWriteArrayList<>();
+
+    @Override
+    public List<StuckSpike> getStuckSpikes() {
+        return stuckSpikes;
+    }
+
+    @Override
+    public void addStuckSpike(StuckSpike spike) {
+        stuckSpikes.add(spike);
+    }
+
+    @Override
+    public void setStuckSpikes(List<StuckSpike> spikes) {
+        stuckSpikes.clear();
+        if (spikes != null) {
+            stuckSpikes.addAll(spikes);
+        }
+    }
 
     @Override
     public float getBloodLevel() {

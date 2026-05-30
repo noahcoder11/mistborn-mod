@@ -14,12 +14,8 @@ import net.minecraftforge.registries.RegistryObject;
 public final class ModBlocks {
     public static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, MistbornMetalArts.MOD_ID);
 
-    public static final RegistryObject<Block> METALLURGY_TABLE = machine("metallurgy_table", 3.0F);
-    public static final RegistryObject<Block> METALWORKING_TABLE = machine("metalworking_table", 3.0F);
-    public static final RegistryObject<Block> ALLOY_FURNACE = machine("alloy_furnace", 4.0F);
     public static final RegistryObject<Block> SPIKE_PRESS = machine("spike_press", 5.0F);
-    public static final RegistryObject<Block> BIND_POINT_TABLE = machine("bind_point_table", 3.5F);
-    public static final RegistryObject<Block> METALMIND_CHARGING_STAND = machine("metalmind_charging_stand", 2.5F);
+    public static final RegistryObject<Block> HEMALURGIC_ALTAR = BLOCKS.register("hemalurgic_altar", () -> new com.not_noah.mistborn_metal_arts.block.HemalurgicAltarBlock(BlockBehaviour.Properties.of().strength(5.0F, 12.0F).sound(SoundType.METAL).noOcclusion().isSuffocating((state, level, pos) -> false).isViewBlocking((state, level, pos) -> false).lightLevel(state -> 12)));
     public static final RegistryObject<Block> ATIUM_GEODE_CLUSTER = BLOCKS.register("atium_geode_cluster", () -> new Block(BlockBehaviour.Properties.of().strength(4.0F, 8.0F).sound(SoundType.AMETHYST)));
     public static final RegistryObject<Block> LERASIUM_CACHE_BLOCK = BLOCKS.register("lerasium_cache_block", () -> new Block(BlockBehaviour.Properties.of().strength(8.0F, 24.0F).sound(SoundType.METAL)));
     public static final RegistryObject<Block> METAL_CACHE = BLOCKS.register("metal_cache", () -> new Block(BlockBehaviour.Properties.of().strength(4.0F, 12.0F).sound(SoundType.METAL)));
@@ -27,6 +23,9 @@ public final class ModBlocks {
     public static final RegistryObject<Block> WELL_PULSE_CORE = BLOCKS.register("well_pulse_core", () -> new WellOfAscensionBlock(BlockBehaviour.Properties.of().strength(16.0F, 1200.0F).lightLevel(state -> 14).sound(SoundType.AMETHYST)));
     public static final RegistryObject<Block> SEALED_WELL_DOOR = BLOCKS.register("sealed_well_door", () -> new Block(BlockBehaviour.Properties.of().strength(18.0F, 1200.0F).sound(SoundType.METAL)));
     public static final RegistryObject<Block> ANCIENT_METAL_FLOOR = BLOCKS.register("ancient_metal_floor", () -> new Block(BlockBehaviour.Properties.of().strength(8.0F, 36.0F).sound(SoundType.METAL)));
+    public static final RegistryObject<Block> BLOOD_PRESERVATION_TANK = BLOCKS.register("blood_preservation_tank", () -> new com.not_noah.mistborn_metal_arts.block.BloodPreservationTankBlock(BlockBehaviour.Properties.of().strength(3.0F, 6.0F).sound(SoundType.METAL).noOcclusion().isSuffocating((state, level, pos) -> false).isViewBlocking((state, level, pos) -> false)));
+    public static final RegistryObject<Block> BLOOD_VIAL = BLOCKS.register("blood_vial", () -> new com.not_noah.mistborn_metal_arts.block.BloodVialBlock(BlockBehaviour.Properties.of().strength(0.5F).sound(SoundType.GLASS).noOcclusion().isSuffocating((state, level, pos) -> false).isViewBlocking((state, level, pos) -> false)));
+    public static final RegistryObject<Block> ALUMINUM_CASING = BLOCKS.register("aluminum_casing", () -> new com.not_noah.mistborn_metal_arts.block.AluminumCasingBlock(BlockBehaviour.Properties.of().strength(1.5F).sound(SoundType.METAL).noOcclusion().isSuffocating((state, level, pos) -> false).isViewBlocking((state, level, pos) -> false)));
 
     public static final RegistryObject<Block> ZINC_ORE = ore("zinc_ore");
     public static final RegistryObject<Block> DEEPSLATE_ZINC_ORE = ore("deepslate_zinc_ore");

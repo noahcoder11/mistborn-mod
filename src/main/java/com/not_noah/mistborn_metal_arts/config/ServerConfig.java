@@ -28,13 +28,35 @@ public final class ServerConfig {
     public final ForgeConfigSpec.BooleanValue lerasiumAlloysGrantMistings;
 
     public final ForgeConfigSpec.BooleanValue hemalurgyEnabled;
-    public final ForgeConfigSpec.BooleanValue hemalurgyPlayerStealing;
     public final ForgeConfigSpec.BooleanValue hemalurgyMobStealing;
     public final ForgeConfigSpec.DoubleValue spikeDecayRate;
     public final ForgeConfigSpec.IntValue maxSpikesBeforeCorruption;
     public final ForgeConfigSpec.IntValue maxInstalledSpikes;
     public final ForgeConfigSpec.BooleanValue spikeRemovalPossible;
     public final ForgeConfigSpec.BooleanValue removedSpikesRetainCharge;
+
+    public final ForgeConfigSpec.DoubleValue soulStabilityBaseMax;
+    public final ForgeConfigSpec.DoubleValue linchpinStabilityBonus;
+    public final ForgeConfigSpec.DoubleValue stabilityLossPerSpike;
+    public final ForgeConfigSpec.DoubleValue stabilityLossPerDuplicate;
+
+    public final ForgeConfigSpec.DoubleValue contaminationPerSpike;
+    public final ForgeConfigSpec.DoubleValue contaminationDecayRate;
+
+    public final ForgeConfigSpec.DoubleValue savantGainPerBurnTick;
+    public final ForgeConfigSpec.DoubleValue savantGainPerFlareTick;
+    public final ForgeConfigSpec.DoubleValue savantGainPerSpikeStack;
+    public final ForgeConfigSpec.DoubleValue savantDecayRate;
+
+    public final ForgeConfigSpec.DoubleValue bloatPerForcedSystem;
+
+    public final ForgeConfigSpec.IntValue maxDuplicateSpikesPerPower;
+
+    public final ForgeConfigSpec.DoubleValue spikeDecayRateOutside;
+    public final ForgeConfigSpec.DoubleValue spikeDecayRateBlood;
+    public final ForgeConfigSpec.DoubleValue spikeDecayRateAluminum;
+    public final ForgeConfigSpec.IntValue instantTransferWindow;
+    public final ForgeConfigSpec.DoubleValue instantTransferRetention;
 
     public final ForgeConfigSpec.BooleanValue feruchemyEnabled;
     public final ForgeConfigSpec.DoubleValue metalmindCapacity;
@@ -150,13 +172,47 @@ public final class ServerConfig {
 
         builder.push("hemalurgy");
         hemalurgyEnabled = builder.define("hemalurgyEnabled", true);
-        hemalurgyPlayerStealing = builder.define("allowPlayerPowerStealing", false);
         hemalurgyMobStealing = builder.define("allowMobPowerStealing", true);
         spikeDecayRate = builder.defineInRange("spikeDecayRate", 0.02D, 0D, 100D);
         maxSpikesBeforeCorruption = builder.defineInRange("maxSpikesBeforeCorruption", 3, 0, 32);
-        maxInstalledSpikes = builder.defineInRange("maxInstalledSpikes", 8, 0, 32);
+        maxInstalledSpikes = builder.defineInRange("maxInstalledSpikes", 32, 0, 64);
         spikeRemovalPossible = builder.define("spikeRemovalPossible", true);
         removedSpikesRetainCharge = builder.define("removedSpikesRetainCharge", false);
+        builder.pop();
+
+        builder.push("soul_stability");
+        soulStabilityBaseMax = builder.comment("Maximum soul stability before any modifiers").defineInRange("soulStabilityBaseMax", 100.0D, 10D, 200D);
+        linchpinStabilityBonus = builder.comment("Soul stability bonus from having a linchpin spike").defineInRange("linchpinStabilityBonus", 35.0D, 0D, 100D);
+        stabilityLossPerSpike = builder.comment("Soul stability lost per installed spike").defineInRange("stabilityLossPerSpike", 6.0D, 1D, 25D);
+        stabilityLossPerDuplicate = builder.comment("Extra soul stability lost per duplicate power spike").defineInRange("stabilityLossPerDuplicate", 4.0D, 0D, 15D);
+        builder.pop();
+
+        builder.push("identity_contamination");
+        contaminationPerSpike = builder.comment("Identity contamination gained per spike").defineInRange("contaminationPerSpike", 5.0D, 1D, 20D);
+        contaminationDecayRate = builder.comment("Identity contamination passive decay per tick when resting").defineInRange("contaminationDecayRate", 0.001D, 0D, 0.1D);
+        builder.pop();
+
+        builder.push("savantism");
+        savantGainPerBurnTick = builder.comment("Savantism progress gained per tick of normal burning").defineInRange("savantGainPerBurnTick", 0.00002D, 0D, 0.001D);
+        savantGainPerFlareTick = builder.comment("Savantism progress gained per tick of flaring").defineInRange("savantGainPerFlareTick", 0.00008D, 0D, 0.005D);
+        savantGainPerSpikeStack = builder.comment("Savantism progress multiplier per duplicate spike").defineInRange("savantGainPerSpikeStack", 0.15D, 0D, 1.0D);
+        savantDecayRate = builder.comment("Savantism progress decay per tick when not burning").defineInRange("savantDecayRate", 0.000005D, 0D, 0.001D);
+        builder.pop();
+
+        builder.push("spiritual_bloat");
+        bloatPerForcedSystem = builder.comment("Spiritual bloat gained per forced system acquisition").defineInRange("bloatPerForcedSystem", 12.0D, 1D, 50D);
+        builder.pop();
+
+        builder.push("stacking");
+        maxDuplicateSpikesPerPower = builder.comment("Maximum duplicate spikes for a single power").defineInRange("maxDuplicateSpikesPerPower", 6, 1, 16);
+        builder.pop();
+
+        builder.push("spike_decay");
+        spikeDecayRateOutside = builder.comment("Spike charge decay per tick when outside a body (in world/inventory)").defineInRange("spikeDecayRateOutside", 0.0005D, 0D, 0.01D);
+        spikeDecayRateBlood = builder.comment("Spike charge decay per tick when stored in blood").defineInRange("spikeDecayRateBlood", 0.0001D, 0D, 0.01D);
+        spikeDecayRateAluminum = builder.comment("Spike charge decay per tick when sealed in aluminum (0 = paused)").defineInRange("spikeDecayRateAluminum", 0.0D, 0D, 0.01D);
+        instantTransferWindow = builder.comment("Ticks after spike creation for instant heart-to-heart transfer bonus").defineInRange("instantTransferWindow", 60, 0, 200);
+        instantTransferRetention = builder.comment("Strength retained during instant transfer").defineInRange("instantTransferRetention", 0.98D, 0D, 1.0D);
         builder.pop();
 
         builder.push("worldgen");

@@ -454,6 +454,22 @@ public final class FeruchemyManager {
                     player.displayClientMessage(Component.literal("Allomancy locked out while storing Investiture!").withStyle(net.minecraft.ChatFormatting.RED), true);
                 }
             }
+            case TRELLIUM -> {
+                // Storing spiritual presence — become stealthy but slow
+                player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 40, 0, false, false));
+                player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, 1, false, false));
+            }
+            case RAYSIUM -> {
+                // Storing energy — drain other active metal reserves to charge metalmind
+                if (player.tickCount % 20 == 0) {
+                    data.burningMetals().stream()
+                        .filter(m -> m != Metal.RAYSIUM)
+                        .forEach(m -> data.consumeReserve(m, 5.0F));
+                }
+            }
+            case TANAVASTIUM -> {
+                // No storing penalty for Tanavastium — pure spiritual integrity
+            }
             default -> {}
         }
     }
@@ -607,6 +623,38 @@ public final class FeruchemyManager {
                         data.fillReserve(activeBurn, 0.05F * tapLevel);
                     }
                 }
+            }
+            case TRELLIUM -> {
+                // Tapping spiritual presence — glow all entities through walls
+                if (player.tickCount % 20 == 0) {
+                    double radius = 16.0D + 4.0D * tapLevel;
+                    AABB area = player.getBoundingBox().inflate(radius);
+                    for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, area, e -> e != player && e.isAlive())) {
+                        target.addEffect(new MobEffectInstance(MobEffects.GLOWING, 60, 0, false, false));
+                    }
+                }
+            }
+            case RAYSIUM -> {
+                // Tapping siphoning energy — deal magic damage and heal
+                if (player.tickCount % 20 == 0) {
+                    double radius = 4.0D + 2.0D * tapLevel;
+                    AABB area = player.getBoundingBox().inflate(radius);
+                    for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, area, e -> e != player && e.isAlive())) {
+                        if (target instanceof Monster || (target instanceof Player p && p != player)) {
+                            float damage = 1.5F * tapLevel;
+                            target.hurt(player.damageSources().magic(), damage);
+                            player.heal(damage * 0.5F);
+                        }
+                    }
+                }
+            }
+            case TANAVASTIUM -> {
+                // Tapping spiritual integrity — massive Soul Stability bonus
+                // Actual stability bonus is handled in SoulStabilityManager
+                // Here we remove negative effects
+                player.removeEffect(MobEffects.WITHER);
+                player.removeEffect(MobEffects.WEAKNESS);
+                player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 40, tapLevel - 1, false, false));
             }
             default -> {}
         }

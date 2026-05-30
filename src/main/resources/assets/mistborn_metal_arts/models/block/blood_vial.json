@@ -1,0 +1,50 @@
+{
+  "parent": "minecraft:block/block",
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "glass": "mistborn_metal_arts:block/blood_vial_glass",
+    "neck": "mistborn_metal_arts:block/blood_vial_neck",
+    "stopper": "mistborn_metal_arts:block/blood_vial_stopper",
+    "particle": "mistborn_metal_arts:block/blood_vial_glass"
+  },
+  "elements": [
+    {
+      "name": "glass_body",
+      "from": [ 5, 0, 5 ],
+      "to": [ 11, 10, 11 ],
+      "faces": {
+        "down":  { "uv": [ 0, 0, 6, 6 ], "texture": "#glass" },
+        "up":    { "uv": [ 6, 0, 12, 6 ], "texture": "#glass" },
+        "north": { "uv": [ 0, 6, 4, 16 ], "texture": "#glass" },
+        "south": { "uv": [ 4, 6, 8, 16 ], "texture": "#glass" },
+        "west":  { "uv": [ 8, 6, 12, 16 ], "texture": "#glass" },
+        "east":  { "uv": [ 12, 6, 16, 16 ], "texture": "#glass" }
+      }
+    },
+    {
+      "name": "neck",
+      "from": [ 6, 10, 6 ],
+      "to": [ 10, 12, 10 ],
+      "faces": {
+        "up":    { "uv": [ 0, 0, 4, 4 ], "texture": "#neck" },
+        "north": { "uv": [ 0, 4, 4, 6 ], "texture": "#neck" },
+        "south": { "uv": [ 4, 4, 8, 6 ], "texture": "#neck" },
+        "west":  { "uv": [ 8, 4, 12, 6 ], "texture": "#neck" },
+        "east":  { "uv": [ 12, 4, 16, 6 ], "texture": "#neck" }
+      }
+    },
+    {
+      "name": "stopper",
+      "from": [ 5.5, 12, 5.5 ],
+      "to": [ 10.5, 14, 10.5 ],
+      "faces": {
+        "up":    { "uv": [ 0, 0, 5, 5 ], "texture": "#stopper" },
+        "down":  { "uv": [ 5, 0, 10, 5 ], "texture": "#stopper" },
+        "north": { "uv": [ 0, 5, 5, 7 ], "texture": "#stopper" },
+        "south": { "uv": [ 5, 5, 10, 7 ], "texture": "#stopper" },
+        "west":  { "uv": [ 10, 5, 15, 7 ], "texture": "#stopper" },
+        "east":  { "uv": [ 0, 7, 5, 9 ], "texture": "#stopper" }
+      }
+    }
+  ]
+}

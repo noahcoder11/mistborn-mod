@@ -14,12 +14,19 @@ public final class ModBlockEntities {
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES = DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES, MistbornMetalArts.MOD_ID);
 
     public static final RegistryObject<BlockEntityType<MetalArtsMachineBlockEntity>> METAL_ARTS_MACHINE = BLOCK_ENTITIES.register("metal_arts_machine", () -> BlockEntityType.Builder.of(MetalArtsMachineBlockEntity::new, 
-            ModBlocks.METALLURGY_TABLE.get(),
-            ModBlocks.METALWORKING_TABLE.get(),
-            ModBlocks.ALLOY_FURNACE.get(),
-            ModBlocks.SPIKE_PRESS.get(),
-            ModBlocks.BIND_POINT_TABLE.get(),
-            ModBlocks.METALMIND_CHARGING_STAND.get()
+            ModBlocks.SPIKE_PRESS.get()
+    ).build(null));
+
+    public static final RegistryObject<BlockEntityType<com.not_noah.mistborn_metal_arts.block.entity.BloodPreservationTankBlockEntity>> BLOOD_PRESERVATION_TANK = BLOCK_ENTITIES.register("blood_preservation_tank", () -> BlockEntityType.Builder.of(com.not_noah.mistborn_metal_arts.block.entity.BloodPreservationTankBlockEntity::new, 
+            ModBlocks.BLOOD_PRESERVATION_TANK.get()
+    ).build(null));
+
+    public static final RegistryObject<BlockEntityType<com.not_noah.mistborn_metal_arts.block.entity.BloodVialBlockEntity>> BLOOD_VIAL = BLOCK_ENTITIES.register("blood_vial", () -> BlockEntityType.Builder.of(com.not_noah.mistborn_metal_arts.block.entity.BloodVialBlockEntity::new, 
+            ModBlocks.BLOOD_VIAL.get()
+    ).build(null));
+
+    public static final RegistryObject<BlockEntityType<com.not_noah.mistborn_metal_arts.block.entity.AluminumCasingBlockEntity>> ALUMINUM_CASING = BLOCK_ENTITIES.register("aluminum_casing", () -> BlockEntityType.Builder.of(com.not_noah.mistborn_metal_arts.block.entity.AluminumCasingBlockEntity::new, 
+            ModBlocks.ALUMINUM_CASING.get()
     ).build(null));
 
     private ModBlockEntities() {

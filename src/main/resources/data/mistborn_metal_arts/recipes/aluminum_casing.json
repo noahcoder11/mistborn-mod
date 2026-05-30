@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " A ",
+    "A A",
+    " A "
+  ],
+  "key": {
+    "A": {
+      "item": "mistborn_metal_arts:aluminum_ingot"
+    }
+  },
+  "result": {
+    "item": "mistborn_metal_arts:aluminum_casing"
+  }
+}

@@ -21,14 +21,17 @@ public enum Metal {
     DURALUMIN("duralumin", "Duralumin", false, true, true),
     CHROMIUM("chromium", "Chromium", false, true, true),
     NICROSIL("nicrosil", "Nicrosil", false, true, true),
-    ATIUM("atium", "Atium", true, true, false),
-    LERASIUM("lerasium", "Lerasium", true, false, false),
+    ATIUM("atium", "Atium", true, true, true),
+    LERASIUM("lerasium", "Lerasium", true, false, true),
     LEAD("lead", "Lead", false, true, true),
     SILVER("silver", "Silver", false, true, true),
     NICKEL("nickel", "Nickel", false, true, true),
     HARMONIUM("harmonium", "Harmonium", true, true, false),
     MALATIUM("malatium", "Malatium", true, true, false),
-    LERASATIUM("lerasatium", "Lerasatium", true, false, false);
+    LERASATIUM("lerasatium", "Lerasatium", true, false, false),
+    TRELLIUM("trellium", "Trellium", true, true, true),
+    RAYSIUM("raysium", "Raysium", true, true, true),
+    TANAVASTIUM("tanavastium", "Tanavastium", true, true, true);
 
     private final String id;
     private final String displayName;

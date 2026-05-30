@@ -71,7 +71,7 @@ public final class MetalForceHelper {
         Vec3 direction = fromPlayerToTarget.normalize();
         
         float allomanticStrength = player.getCapability(com.not_noah.mistborn_metal_arts.capability.MetalArtsCapabilities.METAL_ARTS)
-                .map(com.not_noah.mistborn_metal_arts.capability.MetalArtsData::getEffectiveStrength)
+                .map(data -> data.getEffectiveStrength(pulling ? Metal.IRON : Metal.STEEL))
                 .orElse(0.5F);
 
         double burnStrength = ServerConfig.powerStrength(pulling ? Metal.IRON : Metal.STEEL);

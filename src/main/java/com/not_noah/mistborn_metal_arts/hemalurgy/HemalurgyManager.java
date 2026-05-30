@@ -56,6 +56,9 @@ public final class HemalurgyManager {
             player.displayClientMessage(Component.translatable("message.mistborn_metal_arts.spike_removal_disabled"), true);
             return false;
         }
+        int lastIndex = data.installedSpikes().size() - 1;
+        MetalArtsData.InstalledSpike spike = lastIndex >= 0 ? data.installedSpikes().get(lastIndex) : null;
+
         boolean removedPermanent = data.removeLastSpike();
         boolean removedCurio = false;
         if (!removedPermanent) {
@@ -65,6 +68,22 @@ public final class HemalurgyManager {
             player.displayClientMessage(Component.translatable("message.mistborn_metal_arts.no_spikes"), true);
             return false;
         }
+        
+        if (removedPermanent && spike != null) {
+            net.minecraft.world.item.ItemStack spikeStack = com.not_noah.mistborn_metal_arts.hemalurgy.SoulStabilityManager.createSpikeItem(spike);
+            if (!spikeStack.isEmpty()) {
+                net.minecraft.world.entity.item.ItemEntity entity = new net.minecraft.world.entity.item.ItemEntity(
+                    player.level(), player.getX(), player.getY() + 1.0D, player.getZ(), spikeStack
+                );
+                entity.setDeltaMovement(
+                    (player.getRandom().nextFloat() - 0.5) * 0.5,
+                    0.3 + player.getRandom().nextFloat() * 0.2,
+                    (player.getRandom().nextFloat() - 0.5) * 0.5
+                );
+                player.level().addFreshEntity(entity);
+            }
+        }
+
         player.hurt(player.damageSources().magic(), 4.0F);
         player.level().playSound(null, player.blockPosition(), SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, 0.7F, 0.7F);
         player.displayClientMessage(Component.translatable("message.mistborn_metal_arts.spike_removed"), true);

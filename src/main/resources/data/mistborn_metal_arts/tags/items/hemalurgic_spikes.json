@@ -36,6 +36,12 @@
     "mistborn_metal_arts:atium_spike",
     "mistborn_metal_arts:charged_atium_spike",
     "mistborn_metal_arts:lerasium_spike",
-    "mistborn_metal_arts:charged_lerasium_spike"
+    "mistborn_metal_arts:charged_lerasium_spike",
+    "mistborn_metal_arts:trellium_spike",
+    "mistborn_metal_arts:charged_trellium_spike",
+    "mistborn_metal_arts:raysium_spike",
+    "mistborn_metal_arts:charged_raysium_spike",
+    "mistborn_metal_arts:tanavastium_spike",
+    "mistborn_metal_arts:charged_tanavastium_spike"
   ]
 }

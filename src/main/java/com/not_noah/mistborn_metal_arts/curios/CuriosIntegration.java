@@ -37,7 +37,10 @@ import java.util.Optional;
 import com.not_noah.mistborn_metal_arts.item.MetalmindItem;
 
 public final class CuriosIntegration {
-    private static final String[] PREFERRED_SLOTS = {"hemalurgic_eye", "hemalurgic_heart", "hemalurgic_shoulder", "hemalurgic_spine"};
+    private static final String[] PREFERRED_SLOTS = {
+        "physical_quadrant", "mental_quadrant", "spiritual_quadrant", "temporal_quadrant",
+        "head", "necklace", "back", "body", "belt", "ring", "hands", "bracelet", "charm"
+    };
     private static final String[] METALMIND_SLOTS = {"ring", "hands", "bracelet", "necklace", "belt", "back", "head"};
 
     private CuriosIntegration() {
@@ -104,7 +107,7 @@ public final class CuriosIntegration {
             return false;
         }
         ICuriosItemHandler handler = optional.get();
-        if (!canAddAnotherSpike(player, handler)) {
+        if (!canAddAnotherSpike(player, handler, sourceStack)) {
             player.displayClientMessage(Component.translatable("message.mistborn_metal_arts.too_many_spikes"), true);
             return false;
         }
@@ -172,6 +175,7 @@ public final class CuriosIntegration {
 
     public static void refreshEquippedHemalurgicSpikes(ServerPlayer player, MetalArtsData data) {
         data.setEquippedSpikeCorruption(0);
+        data.clearEquippedStrengths();
         CuriosApi.getCuriosInventory(player).ifPresent(handler -> {
             int corruption = 0;
             for (String slotType : PREFERRED_SLOTS) {
@@ -186,8 +190,14 @@ public final class CuriosIntegration {
                         CompoundTag tag = stack.getOrCreateTag();
                         String powerType = normalizedPowerType(tag.getString("PowerType"), spike.metal());
                         Metal powerMetal = Metal.byName(tag.getString("PowerMetal")).orElse(spike.metal());
-                        float strength = tag.contains("Strength") ? tag.getFloat("Strength") : 1.0F;
+                        float baseStrength = tag.contains("Strength") ? tag.getFloat("Strength") : 1.0F;
+                        float efficiency = isMatchingQuadrant(slotType, spike.metal()) ? 1.0F : 0.2F;
+                        float strength = baseStrength * efficiency;
+
                         data.addSpikePower(powerMetal, powerType);
+                        if ("allomancy".equals(powerType)) {
+                            data.addEquippedStrength(powerMetal, strength);
+                        }
                         corruption += Math.max(1, Math.round(2F * Math.max(0.05F, strength)));
                     }
                 }
@@ -196,7 +206,17 @@ public final class CuriosIntegration {
         });
     }
 
-    private static boolean canAddAnotherSpike(ServerPlayer player, ICuriosItemHandler handler) {
+    private static boolean isMatchingQuadrant(String slotType, Metal metal) {
+        return switch (slotType) {
+            case "physical_quadrant" -> metal == Metal.STEEL || metal == Metal.IRON || metal == Metal.TIN || metal == Metal.PEWTER;
+            case "mental_quadrant" -> metal == Metal.ZINC || metal == Metal.BRASS || metal == Metal.COPPER || metal == Metal.BRONZE;
+            case "spiritual_quadrant" -> metal == Metal.GOLD || metal == Metal.ELECTRUM || metal == Metal.CHROMIUM || metal == Metal.NICROSIL;
+            case "temporal_quadrant" -> metal == Metal.CADMIUM || metal == Metal.BENDALLOY || metal == Metal.ALUMINUM || metal == Metal.DURALUMIN || metal == Metal.ATIUM || metal == Metal.LERASIUM;
+            default -> false;
+        };
+    }
+
+    private static boolean canAddAnotherSpike(Player player, ICuriosItemHandler handler, ItemStack currentStack) {
         int equipped = 0;
         for (String slotType : PREFERRED_SLOTS) {
             Optional<ICurioStacksHandler> stacksHandler = handler.getStacksHandler(slotType);
@@ -205,7 +225,8 @@ public final class CuriosIntegration {
             }
             IItemHandlerModifiable stacks = stacksHandler.get().getStacks();
             for (int i = 0; i < stacks.getSlots(); i++) {
-                if (isChargedSpike(stacks.getStackInSlot(i))) {
+                ItemStack s = stacks.getStackInSlot(i);
+                if (s != currentStack && isChargedSpike(s)) {
                     equipped++;
                 }
             }
@@ -216,6 +237,34 @@ public final class CuriosIntegration {
 
     private static boolean isChargedSpike(ItemStack stack) {
         return stack.getItem() instanceof HemalurgicSpikeItem spike && spike.charged();
+    }
+
+    public static boolean replaceCurioStack(Player player, ItemStack original, ItemStack replacement) {
+        Optional<ICuriosItemHandler> optional = CuriosApi.getCuriosInventory(player).resolve();
+        if (optional.isEmpty()) {
+            return false;
+        }
+        ICuriosItemHandler handler = optional.get();
+        for (String slotType : PREFERRED_SLOTS) {
+            Optional<ICurioStacksHandler> stacksHandler = handler.getStacksHandler(slotType);
+            if (stacksHandler.isEmpty()) {
+                continue;
+            }
+            ICurioStacksHandler stacks = stacksHandler.get();
+            for (int i = 0; i < stacks.getStacks().getSlots(); i++) {
+                if (stacks.getStacks().getStackInSlot(i) == original) {
+                    stacks.getStacks().setStackInSlot(i, replacement);
+                    if (player instanceof ServerPlayer serverPlayer) {
+                        player.getCapability(MetalArtsCapabilities.METAL_ARTS).ifPresent(data -> {
+                            data.refreshPowers();
+                            refreshEquippedHemalurgicSpikes(serverPlayer, data);
+                        });
+                    }
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static String normalizedPowerType(String type, Metal fallbackMetal) {
@@ -240,7 +289,21 @@ public final class CuriosIntegration {
         @Override
         public void onEquip(SlotContext slotContext, ItemStack prevStack) {
             LivingEntity entity = slotContext.entity();
-            entity.level().playSound(null, entity.blockPosition(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.55F, 0.65F);
+            if (!entity.level().isClientSide()) {
+                stack.getOrCreateTag().putString("StoredState", "equipped");
+                stack.getOrCreateTag().putLong("LastUpdateTime", entity.level().getGameTime());
+                if (prevStack.getItem() != stack.getItem()) {
+                    entity.level().playSound(null, entity.blockPosition(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.55F, 0.65F);
+                }
+            }
+        }
+
+        @Override
+        public void onUnequip(SlotContext slotContext, ItemStack newStack) {
+            if (!slotContext.entity().level().isClientSide()) {
+                stack.getOrCreateTag().putString("StoredState", "normal");
+                stack.getOrCreateTag().putLong("LastUpdateTime", slotContext.entity().level().getGameTime());
+            }
         }
 
         @Override
@@ -249,14 +312,14 @@ public final class CuriosIntegration {
                 return false;
             }
             if (slotContext.entity() instanceof ServerPlayer serverPlayer) {
-                return CuriosApi.getCuriosInventory(serverPlayer).resolve().map(handler -> canAddAnotherSpike(serverPlayer, handler)).orElse(true);
+                return CuriosApi.getCuriosInventory(serverPlayer).resolve().map(handler -> canAddAnotherSpike(serverPlayer, handler, stack)).orElse(true);
             }
-            return slotContext.entity() instanceof Player player && player.getAbilities().instabuild;
+            return slotContext.entity().level().isClientSide;
         }
 
         @Override
         public boolean canUnequip(SlotContext slotContext) {
-            return slotContext.entity() instanceof Player player && player.getAbilities().instabuild;
+            return true;
         }
 
         @Override
@@ -280,7 +343,9 @@ public final class CuriosIntegration {
         @Override
         public void onEquip(SlotContext slotContext, ItemStack prevStack) {
             LivingEntity entity = slotContext.entity();
-            entity.level().playSound(null, entity.blockPosition(), SoundEvents.ARMOR_EQUIP_GOLD, SoundSource.PLAYERS, 0.55F, 1.25F);
+            if (!entity.level().isClientSide() && prevStack.getItem() != stack.getItem()) {
+                entity.level().playSound(null, entity.blockPosition(), SoundEvents.ARMOR_EQUIP_GOLD, SoundSource.PLAYERS, 0.55F, 1.25F);
+            }
         }
 
         @Override

@@ -1,0 +1,79 @@
+{
+  "variants": {
+    "facing=north,level=0": {
+      "model": "mistborn_metal_arts:block/blood_preservation_tank"
+    },
+    "facing=north,level=1": {
+      "model": "mistborn_metal_arts:block/blood_preservation_tank_level_1"
+    },
+    "facing=north,level=2": {
+      "model": "mistborn_metal_arts:block/blood_preservation_tank_level_2"
+    },
+    "facing=north,level=3": {
+      "model": "mistborn_metal_arts:block/blood_preservation_tank_level_3"
+    },
+    "facing=north,level=4": {
+      "model": "mistborn_metal_arts:block/blood_preservation_tank_level_4"
+    },
+    "facing=south,level=0": {
+      "model": "mistborn_metal_arts:block/blood_preservation_tank",
+      "y": 180
+    },
+    "facing=south,level=1": {
+      "model": "mistborn_metal_arts:block/blood_preservation_tank_level_1",
+      "y": 180
+    },
+    "facing=south,level=2": {
+      "model": "mistborn_metal_arts:block/blood_preservation_tank_level_2",
+      "y": 180
+    },
+    "facing=south,level=3": {
+      "model": "mistborn_metal_arts:block/blood_preservation_tank_level_3",
+      "y": 180
+    },
+    "facing=south,level=4": {
+      "model": "mistborn_metal_arts:block/blood_preservation_tank_level_4",
+      "y": 180
+    },
+    "facing=west,level=0": {
+      "model": "mistborn_metal_arts:block/blood_preservation_tank",
+      "y": 270
+    },
+    "facing=west,level=1": {
+      "model": "mistborn_metal_arts:block/blood_preservation_tank_level_1",
+      "y": 270
+    },
+    "facing=west,level=2": {
+      "model": "mistborn_metal_arts:block/blood_preservation_tank_level_2",
+      "y": 270
+    },
+    "facing=west,level=3": {
+      "model": "mistborn_metal_arts:block/blood_preservation_tank_level_3",
+      "y": 270
+    },
+    "facing=west,level=4": {
+      "model": "mistborn_metal_arts:block/blood_preservation_tank_level_4",
+      "y": 270
+    },
+    "facing=east,level=0": {
+      "model": "mistborn_metal_arts:block/blood_preservation_tank",
+      "y": 90
+    },
+    "facing=east,level=1": {
+      "model": "mistborn_metal_arts:block/blood_preservation_tank_level_1",
+      "y": 90
+    },
+    "facing=east,level=2": {
+      "model": "mistborn_metal_arts:block/blood_preservation_tank_level_2",
+      "y": 90
+    },
+    "facing=east,level=3": {
+      "model": "mistborn_metal_arts:block/blood_preservation_tank_level_3",
+      "y": 90
+    },
+    "facing=east,level=4": {
+      "model": "mistborn_metal_arts:block/blood_preservation_tank_level_4",
+      "y": 90
+    }
+  }
+}

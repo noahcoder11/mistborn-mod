@@ -1,11 +1,8 @@
 {
   "replace": false,
   "values": [
-    "mistborn_metal_arts:metallurgy_table",
-    "mistborn_metal_arts:alloy_furnace",
+    "mistborn_metal_arts:hemalurgic_altar",
     "mistborn_metal_arts:spike_press",
-    "mistborn_metal_arts:bind_point_table",
-    "mistborn_metal_arts:metalmind_charging_stand",
     "mistborn_metal_arts:atium_geode_cluster",
     "mistborn_metal_arts:lerasium_cache_block",
     "mistborn_metal_arts:metal_cache",

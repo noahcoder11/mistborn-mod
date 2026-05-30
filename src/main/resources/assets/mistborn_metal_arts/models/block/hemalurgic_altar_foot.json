@@ -1,0 +1,256 @@
+{
+  "textures": {
+    "particle": "mistborn_metal_arts:block/stone",
+    "frame": "mistborn_metal_arts:block/altar_side",
+    "base": "mistborn_metal_arts:block/altar_bottom",
+    "surface": "mistborn_metal_arts:block/altar_top",
+    "cuff": "mistborn_metal_arts:block/binding_cuff",
+    "iron": "mistborn_metal_arts:block/cuff_top",
+    "candle": "mistborn_metal_arts:block/pillar",
+    "flame": "minecraft:block/redstone_block",
+    "blood_channel": "mistborn_metal_arts:block/blood_channel",
+    "stone": "mistborn_metal_arts:block/stone",
+    "base_trim": "mistborn_metal_arts:block/base_trim"
+  },
+  "elements": [
+    {
+      "name": "solid_base",
+      "from": [0, 0, 0],
+      "to": [16, 9, 16],
+      "faces": {
+        "down":  {"uv": [0, 0, 16, 16], "texture": "#base"},
+        "up":    {"uv": [0, 0, 16, 16], "texture": "#base"},
+        "north": {"uv": [0, 7, 16, 16], "texture": "#frame"},
+        "south": {"uv": [0, 7, 16, 16], "texture": "#frame"},
+        "west":  {"uv": [0, 7, 16, 16], "texture": "#frame"},
+        "east":  {"uv": [0, 7, 16, 16], "texture": "#frame"}
+      }
+    },
+    {
+      "name": "altar_surface",
+      "from": [1, 9, 0],
+      "to": [15, 11, 16],
+      "faces": {
+        "up":    {"uv": [1, 0, 15, 16], "texture": "#surface"},
+        "down":  {"uv": [1, 0, 15, 16], "texture": "#surface"}
+      }
+    },
+    {
+      "name": "border_left",
+      "from": [0, 9, 0],
+      "to": [1, 11, 16],
+      "faces": {
+        "up":    {"uv": [0, 0, 1, 16], "texture": "#base_trim"},
+        "west":  {"uv": [0, 0, 16, 2], "texture": "#base_trim"},
+        "east":  {"uv": [0, 0, 16, 2], "texture": "#base_trim"}
+      }
+    },
+    {
+      "name": "border_right",
+      "from": [15, 9, 0],
+      "to": [16, 11, 16],
+      "faces": {
+        "up":    {"uv": [15, 0, 16, 16], "texture": "#base_trim"},
+        "west":  {"uv": [0, 0, 16, 2], "texture": "#base_trim"},
+        "east":  {"uv": [0, 0, 16, 2], "texture": "#base_trim"}
+      }
+    },
+    {
+      "name": "border_foot",
+      "from": [0, 9, 0],
+      "to": [16, 11, 1.5],
+      "faces": {
+        "up":    {"uv": [0, 0, 16, 1.5], "texture": "#base_trim"},
+        "north": {"uv": [0, 0, 16, 2], "texture": "#base_trim"}
+      }
+    },
+    {
+      "name": "left_foot_pillar",
+      "from": [-3, 0, 0],
+      "to": [0, 16, 3],
+      "faces": {
+        "north": {"uv": [0, 0, 3, 16], "texture": "#candle"},
+        "south": {"uv": [0, 0, 3, 16], "texture": "#candle"},
+        "west":  {"uv": [0, 0, 3, 16], "texture": "#candle"},
+        "east":  {"uv": [0, 0, 3, 16], "texture": "#candle"},
+        "up":    {"uv": [0, 0, 3, 3], "texture": "#candle"}
+      }
+    },
+    {
+      "name": "left_foot_pillar_top",
+      "from": [-4, 16, -1],
+      "to": [1, 18, 4],
+      "faces": {
+        "north": {"uv": [0, 0, 5, 2], "texture": "#candle"},
+        "south": {"uv": [0, 0, 5, 2], "texture": "#candle"},
+        "west":  {"uv": [0, 0, 5, 2], "texture": "#candle"},
+        "east":  {"uv": [0, 0, 5, 2], "texture": "#candle"},
+        "up":    {"uv": [0, 0, 5, 5], "texture": "#candle"}
+      }
+    },
+    {
+      "name": "left_foot_candle",
+      "from": [-2, 18, 1],
+      "to": [-1, 21, 2],
+      "faces": {
+        "north": {"uv": [0, 0, 1, 3], "texture": "#iron"},
+        "south": {"uv": [0, 0, 1, 3], "texture": "#iron"},
+        "west":  {"uv": [0, 0, 1, 3], "texture": "#iron"},
+        "east":  {"uv": [0, 0, 1, 3], "texture": "#iron"},
+        "up":    {"uv": [0, 0, 1, 1], "texture": "#iron"}
+      }
+    },
+    {
+      "name": "left_foot_flame",
+      "from": [-2.2, 21, 0.8],
+      "to": [-0.8, 22.5, 2.2],
+      "faces": {
+        "north": {"uv": [0, 0, 1.4, 1.5], "texture": "#flame"},
+        "south": {"uv": [0, 0, 1.4, 1.5], "texture": "#flame"},
+        "west":  {"uv": [0, 0, 1.4, 1.5], "texture": "#flame"},
+        "east":  {"uv": [0, 0, 1.4, 1.5], "texture": "#flame"},
+        "up":    {"uv": [0, 0, 1.4, 1.4], "texture": "#flame"}
+      }
+    },
+    {
+      "name": "right_foot_pillar",
+      "from": [16, 0, 0],
+      "to": [19, 16, 3],
+      "faces": {
+        "north": {"uv": [0, 0, 3, 16], "texture": "#candle"},
+        "south": {"uv": [0, 0, 3, 16], "texture": "#candle"},
+        "west":  {"uv": [0, 0, 3, 16], "texture": "#candle"},
+        "east":  {"uv": [0, 0, 3, 16], "texture": "#candle"},
+        "up":    {"uv": [0, 0, 3, 3], "texture": "#candle"}
+      }
+    },
+    {
+      "name": "right_foot_pillar_top",
+      "from": [15, 16, -1],
+      "to": [20, 18, 4],
+      "faces": {
+        "north": {"uv": [0, 0, 5, 2], "texture": "#candle"},
+        "south": {"uv": [0, 0, 5, 2], "texture": "#candle"},
+        "west":  {"uv": [0, 0, 5, 2], "texture": "#candle"},
+        "east":  {"uv": [0, 0, 5, 2], "texture": "#candle"},
+        "up":    {"uv": [0, 0, 5, 5], "texture": "#candle"}
+      }
+    },
+    {
+      "name": "right_foot_candle",
+      "from": [17, 18, 1],
+      "to": [18, 21, 2],
+      "faces": {
+        "north": {"uv": [0, 0, 1, 3], "texture": "#iron"},
+        "south": {"uv": [0, 0, 1, 3], "texture": "#iron"},
+        "west":  {"uv": [0, 0, 1, 3], "texture": "#iron"},
+        "east":  {"uv": [0, 0, 1, 3], "texture": "#iron"},
+        "up":    {"uv": [0, 0, 1, 1], "texture": "#iron"}
+      }
+    },
+    {
+      "name": "right_foot_flame",
+      "from": [16.8, 21, 0.8],
+      "to": [18.2, 22.5, 2.2],
+      "faces": {
+        "north": {"uv": [0, 0, 1.4, 1.5], "texture": "#flame"},
+        "south": {"uv": [0, 0, 1.4, 1.5], "texture": "#flame"},
+        "west":  {"uv": [0, 0, 1.4, 1.5], "texture": "#flame"},
+        "east":  {"uv": [0, 0, 1.4, 1.5], "texture": "#flame"},
+        "up":    {"uv": [0, 0, 1.4, 1.4], "texture": "#flame"}
+      }
+    },
+    {
+      "name": "left_foot_cuff",
+      "from": [0.8, 11, 3],
+      "to": [3.8, 14, 6],
+      "faces": {
+        "north": {"uv": [0, 0, 3, 3], "texture": "#cuff"},
+        "south": {"uv": [0, 0, 3, 3], "texture": "#cuff"},
+        "west":  {"uv": [0, 0, 3, 3], "texture": "#cuff"},
+        "east":  {"uv": [0, 0, 3, 3], "texture": "#cuff"},
+        "up":    {"uv": [0, 0, 3, 3], "texture": "#cuff"},
+        "down":  {"uv": [0, 0, 3, 3], "texture": "#cuff"}
+      }
+    },
+    {
+      "name": "left_foot_cuff_ring",
+      "from": [-0.1, 11.8, 4],
+      "to": [0.8, 13.2, 5],
+      "faces": {
+        "north": {"uv": [0, 0, 1, 2], "texture": "#iron"},
+        "south": {"uv": [0, 0, 1, 2], "texture": "#iron"},
+        "west":  {"uv": [0, 0, 1, 2], "texture": "#iron"},
+        "up":    {"uv": [0, 0, 1, 1], "texture": "#iron"},
+        "down":  {"uv": [0, 0, 1, 1], "texture": "#iron"}
+      }
+    },
+    {
+      "name": "right_foot_cuff",
+      "from": [12.2, 11, 3],
+      "to": [15.2, 14, 6],
+      "faces": {
+        "north": {"uv": [0, 0, 3, 3], "texture": "#cuff"},
+        "south": {"uv": [0, 0, 3, 3], "texture": "#cuff"},
+        "west":  {"uv": [0, 0, 3, 3], "texture": "#cuff"},
+        "east":  {"uv": [0, 0, 3, 3], "texture": "#cuff"},
+        "up":    {"uv": [0, 0, 3, 3], "texture": "#cuff"},
+        "down":  {"uv": [0, 0, 3, 3], "texture": "#cuff"}
+      }
+    },
+    {
+      "name": "right_foot_cuff_ring",
+      "from": [15.2, 11.8, 4],
+      "to": [16.1, 13.2, 5],
+      "faces": {
+        "north": {"uv": [0, 0, 1, 2], "texture": "#iron"},
+        "south": {"uv": [0, 0, 1, 2], "texture": "#iron"},
+        "east":  {"uv": [0, 0, 1, 2], "texture": "#iron"},
+        "up":    {"uv": [0, 0, 1, 1], "texture": "#iron"},
+        "down":  {"uv": [0, 0, 1, 1], "texture": "#iron"}
+      }
+    },
+    {
+      "name": "blood_spout",
+      "from": [6.5, 4, -2.5],
+      "to": [9.5, 6.5, 0],
+      "faces": {
+        "north": {"uv": [0, 0, 3, 2.5], "texture": "#blood_channel"},
+        "west":  {"uv": [0, 0, 2.5, 2.5], "texture": "#blood_channel"},
+        "east":  {"uv": [0, 0, 2.5, 2.5], "texture": "#blood_channel"},
+        "down":  {"uv": [0, 0, 3, 2.5], "texture": "#blood_channel"}
+      }
+    },
+    {
+      "name": "blood_basin_frame",
+      "from": [4.5, 0, -7],
+      "to": [11.5, 3.5, -2.5],
+      "faces": {
+        "north": {"uv": [0, 0, 7, 3.5], "texture": "#stone"},
+        "west":  {"uv": [0, 0, 4.5, 3.5], "texture": "#stone"},
+        "east":  {"uv": [0, 0, 4.5, 3.5], "texture": "#stone"},
+        "up":    {"uv": [0, 0, 7, 4.5], "texture": "#stone"},
+        "down":  {"uv": [0, 0, 7, 4.5], "texture": "#stone"}
+      }
+    },
+    {
+      "name": "blood_liquid",
+      "from": [5.2, 0.5, -6.3],
+      "to": [10.8, 3.1, -3.2],
+      "faces": {
+        "up":    {"uv": [0, 0, 5.6, 3.1], "texture": "#flame"}
+      }
+    },
+    {
+      "name": "blood_flow",
+      "from": [7.3, 2.5, -2.2],
+      "to": [8.7, 5.2, -1.8],
+      "faces": {
+        "north": {"uv": [0, 0, 1.4, 2.7], "texture": "#flame"},
+        "south": {"uv": [0, 0, 1.4, 2.7], "texture": "#flame"},
+        "west":  {"uv": [0, 0, 0.4, 2.7], "texture": "#flame"},
+        "east":  {"uv": [0, 0, 0.4, 2.7], "texture": "#flame"}
+      }
+    }
+  ]
+}

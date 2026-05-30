@@ -31,6 +31,7 @@ public final class MetalArtsNetwork {
         CHANNEL.registerMessage(id++, SyncBloodLevelPacket.class, SyncBloodLevelPacket::toBytes, SyncBloodLevelPacket::new, SyncBloodLevelPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(id++, ClientboundBloodSlashPacket.class, ClientboundBloodSlashPacket::toBytes, ClientboundBloodSlashPacket::new, ClientboundBloodSlashPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(id++, ServerboundSetFeruchemyModePacket.class, ServerboundSetFeruchemyModePacket::encode, ServerboundSetFeruchemyModePacket::decode, ServerboundSetFeruchemyModePacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(id++, SyncStuckSpikesPacket.class, SyncStuckSpikesPacket::toBytes, SyncStuckSpikesPacket::new, SyncStuckSpikesPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
     }
 
     public static void sendToServer(ServerboundMetalActionPacket packet) {
@@ -51,6 +52,12 @@ public final class MetalArtsNetwork {
 
     public static void syncBloodLevel(Entity target, float bloodLevel) {
         CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> target), new SyncBloodLevelPacket(target.getId(), bloodLevel));
+    }
+
+    public static void syncStuckSpikes(net.minecraft.world.entity.LivingEntity entity) {
+        entity.getCapability(MetalArtsCapabilities.BLOOD_DATA).ifPresent(data -> {
+            CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> entity), new SyncStuckSpikesPacket(entity, data.getStuckSpikes()));
+        });
     }
 
     public static void sendBloodSlash(Entity target, double ox, double oy, double oz, int slashType, float scale, float roll, int lifetime) {

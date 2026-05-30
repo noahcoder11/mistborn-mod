@@ -1,0 +1,11 @@
+{
+  "entities": [
+    "minecraft:player"
+  ],
+  "slots": [
+    "physical_quadrant",
+    "mental_quadrant",
+    "spiritual_quadrant",
+    "temporal_quadrant"
+  ]
+}

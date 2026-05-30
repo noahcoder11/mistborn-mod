@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "mistborn_metal_arts:trellium_ingot"
+    }
+  ],
+  "result": {
+    "item": "mistborn_metal_arts:trellium_flakes",
+    "count": 9
+  }
+}

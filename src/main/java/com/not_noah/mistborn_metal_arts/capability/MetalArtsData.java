@@ -17,6 +17,7 @@ public class MetalArtsData {
     private final EnumSet<Metal> naturalAllomanticPowers = EnumSet.noneOf(Metal.class);
     private final EnumSet<Metal> naturalFeruchemicalPowers = EnumSet.noneOf(Metal.class);
     private final EnumSet<Metal> allomanticPowers = EnumSet.noneOf(Metal.class);
+    private final EnumSet<Metal> spikedAllomanticPowers = EnumSet.noneOf(Metal.class);
     private final EnumSet<Metal> feruchemicalPowers = EnumSet.noneOf(Metal.class);
     private final EnumSet<Metal> burningMetals = EnumSet.noneOf(Metal.class);
     private final EnumSet<Metal> flaringMetals = EnumSet.noneOf(Metal.class);
@@ -41,15 +42,54 @@ public class MetalArtsData {
     private float allomanticStrength = 0.5F;
     private int pewterDragTicks = 0;
     private int pewterBurnDuration = 0;
+    private boolean restrained;
+    private net.minecraft.core.BlockPos restrainedAltarPos = net.minecraft.core.BlockPos.ZERO;
+    private int altarSeatIndex;
+    private final EnumMap<Metal, Float> equippedAllomanticStrengths = new EnumMap<>(Metal.class);
+    private boolean restrainedByOthers;
+
+    // ── Soul Stability ──
+    private float soulStability = 100.0F;
+    private boolean hasLinchpinSpike = false;
+    private int linchpinSpikeIndex = -1;
+
+    // ── Identity Contamination ──
+    private float identityContamination = 0.0F;
+    private int contaminationStage = 0;
+
+    // ── Savantism (per-metal) ──
+    private final EnumMap<Metal, Float> savantProgress = new EnumMap<>(Metal.class);
+    private final EnumMap<Metal, Integer> savantStage = new EnumMap<>(Metal.class);
+
+    // ── Spiritual Bloat ──
+    private float spiritualBloat = 0.0F;
+    private int forcedSystemCount = 0;
+
+    // ── Lerasium Enhancement ──
+    private int lerasiumEnhancements = 0;
+    private float lerasiumBonus = 0.0F;
+    private final EnumMap<Metal, Float> lerasiumAlloyBonuses = new EnumMap<>(Metal.class);
 
     public MetalArtsData() {
         for (Metal metal : Metal.cachedValues()) {
             reserves.put(metal, 0F);
             metalmindCharges.put(metal, 0F);
             feruchemyModes.put(metal, 0);
+            equippedAllomanticStrengths.put(metal, 0F);
+            savantProgress.put(metal, 0.0F);
+            savantStage.put(metal, 0);
+            lerasiumAlloyBonuses.put(metal, 0.0F);
         }
         java.util.Random rand = new java.util.Random();
         this.allomanticStrength = 0.3F + rand.nextFloat() * 0.4F;
+    }
+
+    public void clearEquippedStrengths() {
+        equippedAllomanticStrengths.replaceAll((m, v) -> 0F);
+    }
+
+    public void addEquippedStrength(Metal metal, float strength) {
+        equippedAllomanticStrengths.put(metal, equippedAllomanticStrengths.getOrDefault(metal, 0F) + strength);
     }
 
     public boolean needsPowerRefresh() {
@@ -71,6 +111,11 @@ public class MetalArtsData {
         return active;
     }
 
+    public Set<Metal> allomanticPowersRaw() {
+        if (needsPowerRefresh) refreshPowers();
+        return EnumSet.copyOf(allomanticPowers);
+    }
+
     public Set<Metal> feruchemicalPowers() {
         if (needsPowerRefresh) refreshPowers();
         return EnumSet.copyOf(feruchemicalPowers);
@@ -89,19 +134,10 @@ public class MetalArtsData {
         if (!metal.isAllomantic() || !allomanticPowers.contains(metal) || !ServerConfig.isMetalEnabled(metal)) {
             return false;
         }
-        if (hasSpikedAllomanticPower(metal)) {
+        if (spikedAllomanticPowers.contains(metal)) {
             return true;
         }
         return allomancySnapped;
-    }
-
-    private boolean hasSpikedAllomanticPower(Metal metal) {
-        for (InstalledSpike spike : installedSpikes) {
-            if (!"feruchemy".equals(spike.powerType()) && spike.powerMetal() == metal) {
-                return true;
-            }
-        }
-        return false;
     }
 
     public boolean hasFeruchemicalPower(Metal metal) {
@@ -120,7 +156,7 @@ public class MetalArtsData {
     public void setMistborn() {
         naturalAllomanticPowers.clear();
         for (Metal metal : Metal.cachedValues()) {
-            if (metal.isAllomantic()) {
+            if (metal.isAllomantic() || metal == Metal.LERASIUM) {
                 naturalAllomanticPowers.add(metal);
             }
         }
@@ -168,16 +204,38 @@ public class MetalArtsData {
         allomanticPowers.addAll(naturalAllomanticPowers);
         feruchemicalPowers.clear();
         feruchemicalPowers.addAll(naturalFeruchemicalPowers);
+        spikedAllomanticPowers.clear();
         
         for (InstalledSpike spike : installedSpikes) {
             if ("feruchemy".equals(spike.powerType())) {
                 feruchemicalPowers.add(spike.powerMetal());
-            } else {
+            } else if ("allomancy".equals(spike.powerType())) {
                 allomanticPowers.add(spike.powerMetal());
+                spikedAllomanticPowers.add(spike.powerMetal());
             }
         }
         needsPowerRefresh = false;
         stopInvalidBurns();
+    }
+
+    public float getPhysicalStrengthBonus() {
+        float bonus = 0.0F;
+        for (InstalledSpike spike : installedSpikes) {
+            if ("physical_strength".equals(spike.powerType())) {
+                bonus += spike.strength() * 4.0F; // Up to +4 damage per 100% efficiency
+            }
+        }
+        return bonus;
+    }
+
+    public float getPhysicalSightBonus() {
+        float bonus = 0.0F;
+        for (InstalledSpike spike : installedSpikes) {
+            if ("physical_sight".equals(spike.powerType())) {
+                bonus += spike.strength();
+            }
+        }
+        return bonus;
     }
 
     public void addSpikePower(Metal metal, String type) {
@@ -185,6 +243,7 @@ public class MetalArtsData {
             feruchemicalPowers.add(metal);
         } else if (metal.isAllomantic()) {
             allomanticPowers.add(metal);
+            spikedAllomanticPowers.add(metal);
         }
     }
 
@@ -317,7 +376,10 @@ public class MetalArtsData {
             feruchemicalPowers.add(spike.powerMetal());
         } else if (spike.powerMetal().isAllomantic()) {
             allomanticPowers.add(spike.powerMetal());
+            spikedAllomanticPowers.add(spike.powerMetal());
         }
+        com.not_noah.mistborn_metal_arts.hemalurgy.SoulStabilityManager.recalculateStability(this);
+        markNeedsPowerRefresh();
         return true;
     }
 
@@ -327,11 +389,21 @@ public class MetalArtsData {
         }
         installedSpikes.remove(index);
         setCorruption(Math.max(0, corruption - 1));
+        com.not_noah.mistborn_metal_arts.hemalurgy.SoulStabilityManager.recalculateStability(this);
+        markNeedsPowerRefresh();
         return true;
     }
 
     public boolean removeLastSpike() {
         return removeSpike(installedSpikes.size() - 1);
+    }
+
+    public void updateSpikeStrength(int index, float strength) {
+        if (index >= 0 && index < installedSpikes.size()) {
+            InstalledSpike old = installedSpikes.get(index);
+            installedSpikes.set(index, new InstalledSpike(old.spikeMetal(), old.powerType(), old.powerMetal(), Math.max(0.0F, strength), old.decayTicks()));
+            markNeedsPowerRefresh();
+        }
     }
 
     public Metal selectedMetal() {
@@ -471,11 +543,13 @@ public class MetalArtsData {
     }
 
     public CompoundTag serializeNBT() {
+        if (needsPowerRefresh) refreshPowers();
         CompoundTag tag = new CompoundTag();
         tag.put("NaturalAllomanticPowers", metalSet(naturalAllomanticPowers));
         tag.put("NaturalFeruchemicalPowers", metalSet(naturalFeruchemicalPowers));
         tag.put("AllomanticPowers", metalSet(allomanticPowers));
         tag.put("FeruchemicalPowers", metalSet(feruchemicalPowers));
+        tag.put("SpikedAllomanticPowers", metalSet(spikedAllomanticPowers));
         tag.put("Burning", metalSet(burningMetals));
         tag.put("Flaring", metalSet(flaringMetals));
         CompoundTag reserveTag = new CompoundTag();
@@ -489,6 +563,15 @@ public class MetalArtsData {
         tag.put("Reserves", reserveTag);
         tag.put("Metalminds", metalmindTag);
         tag.put("FeruchemyModes", feruchemyModeTag);
+
+        CompoundTag equippedStrengthTag = new CompoundTag();
+        equippedAllomanticStrengths.forEach((metal, strength) -> {
+            if (strength > 0) {
+                equippedStrengthTag.putFloat(metal.id(), strength);
+            }
+        });
+        tag.put("EquippedStrengths", equippedStrengthTag);
+
         ListTag spikeList = new ListTag();
         for (InstalledSpike spike : installedSpikes) {
             spikeList.add(spike.serializeNBT());
@@ -510,6 +593,37 @@ public class MetalArtsData {
         tag.putInt("PewterDragTicks", pewterDragTicks);
         tag.putInt("PewterBurnDuration", pewterBurnDuration);
         tag.putBoolean("AllomancySnapped", allomancySnapped);
+        tag.putBoolean("Restrained", restrained);
+        tag.putLong("RestrainedAltarPos", restrainedAltarPos.asLong());
+        tag.putInt("AltarSeatIndex", altarSeatIndex);
+        tag.putBoolean("RestrainedByOthers", restrainedByOthers);
+
+        // ── Expanded Systems ──
+        tag.putFloat("SoulStability", soulStability);
+        tag.putBoolean("HasLinchpinSpike", hasLinchpinSpike);
+        tag.putInt("LinchpinSpikeIndex", linchpinSpikeIndex);
+        tag.putFloat("IdentityContamination", identityContamination);
+        tag.putInt("ContaminationStage", contaminationStage);
+        tag.putFloat("SpiritualBloat", spiritualBloat);
+        tag.putInt("ForcedSystemCount", forcedSystemCount);
+        tag.putInt("LerasiumEnhancements", lerasiumEnhancements);
+        tag.putFloat("LerasiumBonus", lerasiumBonus);
+
+        CompoundTag savantProgressTag = new CompoundTag();
+        CompoundTag savantStageTag = new CompoundTag();
+        CompoundTag alloyBonusTag = new CompoundTag();
+        for (Metal metal : Metal.cachedValues()) {
+            float sp = savantProgress.getOrDefault(metal, 0.0F);
+            if (sp > 0) savantProgressTag.putFloat(metal.id(), sp);
+            int ss = savantStage.getOrDefault(metal, 0);
+            if (ss > 0) savantStageTag.putInt(metal.id(), ss);
+            float ab = lerasiumAlloyBonuses.getOrDefault(metal, 0.0F);
+            if (ab > 0) alloyBonusTag.putFloat(metal.id(), ab);
+        }
+        tag.put("SavantProgress", savantProgressTag);
+        tag.put("SavantStage", savantStageTag);
+        tag.put("LerasiumAlloyBonuses", alloyBonusTag);
+
         return tag;
     }
 
@@ -526,6 +640,7 @@ public class MetalArtsData {
             burningMetals.clear();
             flaringMetals.clear();
             installedSpikes.clear();
+            spikedAllomanticPowers.clear();
             reserves.replaceAll((m, v) -> 0F);
             metalmindCharges.replaceAll((m, v) -> 0F);
             feruchemyModes.replaceAll((m, v) -> 0);
@@ -546,6 +661,10 @@ public class MetalArtsData {
         if (tag.contains("FeruchemicalPowers")) {
             feruchemicalPowers.clear();
             readMetalSet(tag.getList("FeruchemicalPowers", 8), feruchemicalPowers);
+        }
+        if (tag.contains("SpikedAllomanticPowers")) {
+            spikedAllomanticPowers.clear();
+            readMetalSet(tag.getList("SpikedAllomanticPowers", 8), spikedAllomanticPowers);
         }
         if (tag.contains("Burning")) {
             burningMetals.clear();
@@ -583,6 +702,14 @@ public class MetalArtsData {
             }
         }
 
+        if (tag.contains("EquippedStrengths")) {
+            CompoundTag strengthTag = tag.getCompound("EquippedStrengths");
+            equippedAllomanticStrengths.replaceAll((m, v) -> 0F);
+            for (String key : strengthTag.getAllKeys()) {
+                Metal.byName(key).ifPresent(m -> equippedAllomanticStrengths.put(m, strengthTag.getFloat(key)));
+            }
+        }
+
         if (tag.contains("SelectedMetal")) Metal.byName(tag.getString("SelectedMetal")).ifPresent(value -> selectedMetal = value);
         if (tag.contains("Corruption")) corruption = tag.getInt("Corruption");
         if (tag.contains("EquippedSpikeCorruption")) equippedSpikeCorruption = tag.getInt("EquippedSpikeCorruption");
@@ -603,9 +730,47 @@ public class MetalArtsData {
         } else {
             allomancySnapped = true;
         }
+        if (tag.contains("Restrained")) restrained = tag.getBoolean("Restrained");
+        if (tag.contains("RestrainedAltarPos")) restrainedAltarPos = net.minecraft.core.BlockPos.of(tag.getLong("RestrainedAltarPos"));
+        if (tag.contains("AltarSeatIndex")) altarSeatIndex = tag.getInt("AltarSeatIndex");
+        if (tag.contains("RestrainedByOthers")) restrainedByOthers = tag.getBoolean("RestrainedByOthers");
+
+        // ── Expanded Systems ──
+        if (tag.contains("SoulStability")) soulStability = tag.getFloat("SoulStability");
+        if (tag.contains("HasLinchpinSpike")) hasLinchpinSpike = tag.getBoolean("HasLinchpinSpike");
+        if (tag.contains("LinchpinSpikeIndex")) linchpinSpikeIndex = tag.getInt("LinchpinSpikeIndex");
+        if (tag.contains("IdentityContamination")) identityContamination = tag.getFloat("IdentityContamination");
+        if (tag.contains("ContaminationStage")) contaminationStage = tag.getInt("ContaminationStage");
+        if (tag.contains("SpiritualBloat")) spiritualBloat = tag.getFloat("SpiritualBloat");
+        if (tag.contains("ForcedSystemCount")) forcedSystemCount = tag.getInt("ForcedSystemCount");
+        if (tag.contains("LerasiumEnhancements")) lerasiumEnhancements = tag.getInt("LerasiumEnhancements");
+        if (tag.contains("LerasiumBonus")) lerasiumBonus = tag.getFloat("LerasiumBonus");
+
+        if (tag.contains("SavantProgress")) {
+            CompoundTag spTag = tag.getCompound("SavantProgress");
+            for (String key : spTag.getAllKeys()) {
+                Metal.byName(key).ifPresent(m -> savantProgress.put(m, spTag.getFloat(key)));
+            }
+        }
+        if (tag.contains("SavantStage")) {
+            CompoundTag ssTag = tag.getCompound("SavantStage");
+            for (String key : ssTag.getAllKeys()) {
+                Metal.byName(key).ifPresent(m -> savantStage.put(m, ssTag.getInt(key)));
+            }
+        }
+        if (tag.contains("LerasiumAlloyBonuses")) {
+            CompoundTag abTag = tag.getCompound("LerasiumAlloyBonuses");
+            for (String key : abTag.getAllKeys()) {
+                Metal.byName(key).ifPresent(m -> lerasiumAlloyBonuses.put(m, abTag.getFloat(key)));
+            }
+        }
 
         stopInvalidBurns();
         feruchemyModes.replaceAll((metal, mode) -> hasFeruchemicalPower(metal) ? mode : 0);
+
+        if (!full) {
+            this.needsPowerRefresh = false;
+        }
     }
 
     public float allomanticStrength() {
@@ -616,14 +781,38 @@ public class MetalArtsData {
         this.allomanticStrength = Math.min(1.0F, Math.max(0.0F, allomanticStrength));
     }
 
-    public float getEffectiveStrength() {
-        float base = allomanticStrength;
+    public float getEffectiveStrength(Metal metal) {
+        float base = allomanticStrength + lerasiumBonus
+                + lerasiumAlloyBonuses.getOrDefault(metal, 0.0F);
+
+        // Collect all duplicate spike strengths for this metal
+        List<Float> duplicateStrengths = new ArrayList<>();
         for (InstalledSpike spike : installedSpikes) {
-            if ("allomancy".equals(spike.powerType())) {
-                base += spike.strength() * 0.8F;
+            if ("allomancy".equals(spike.powerType()) && spike.powerMetal() == metal) {
+                duplicateStrengths.add(spike.strength());
             }
         }
-        return Math.min(1.0F, base);
+        float equippedStr = equippedAllomanticStrengths.getOrDefault(metal, 0F);
+        if (equippedStr > 0) duplicateStrengths.add(equippedStr);
+
+        // Sort descending so strongest spikes get the best multipliers
+        duplicateStrengths.sort(Collections.reverseOrder());
+
+        // Diminishing returns: 80%, 60%, 40%, 25%, 15%, 8%...
+        float[] factors = {0.80F, 0.60F, 0.40F, 0.25F, 0.15F};
+        for (int i = 0; i < duplicateStrengths.size(); i++) {
+            float factor = i < factors.length ? factors[i] : 0.08F;
+            base += duplicateStrengths.get(i) * factor;
+        }
+
+        // Savant bonus
+        base += getSavantBonus(metal);
+
+        return base;
+    }
+
+    public float getEffectiveStrength() {
+        return allomanticStrength;
     }
 
     public int pewterDragTicks() {
@@ -688,5 +877,272 @@ public class MetalArtsData {
             }
             return java.util.Optional.of(new InstalledSpike(spikeMetal.get(), type, powerMetal.get(), tag.getFloat("Strength"), tag.getInt("DecayTicks")));
         }
+    }
+
+    public boolean isRestrained() {
+        return restrained;
+    }
+
+    public void setRestrained(boolean restrained, net.minecraft.core.BlockPos pos, int seatIndex) {
+        this.restrained = restrained;
+        this.restrainedAltarPos = pos != null ? pos : net.minecraft.core.BlockPos.ZERO;
+        this.altarSeatIndex = seatIndex;
+        if (!restrained) {
+            this.restrainedByOthers = false;
+        }
+    }
+
+    public boolean isRestrainedByOthers() {
+        return restrainedByOthers;
+    }
+
+    public void setRestrainedByOthers(boolean restrainedByOthers) {
+        this.restrainedByOthers = restrainedByOthers;
+    }
+
+    public net.minecraft.core.BlockPos getRestrainedAltarPos() {
+        return restrainedAltarPos;
+    }
+
+    public int getAltarSeatIndex() {
+        return altarSeatIndex;
+    }
+
+    public boolean hasPowerToSteal(Metal metal, String type) {
+        if ("feruchemy".equals(type)) {
+            return naturalFeruchemicalPowers.contains(metal);
+        } else {
+            return naturalAllomanticPowers.contains(metal);
+        }
+    }
+
+    public boolean stealSpecificPower(Metal metal, String type) {
+        if ("feruchemy".equals(type)) {
+            if (naturalFeruchemicalPowers.remove(metal)) {
+                markNeedsPowerRefresh();
+                return true;
+            }
+        } else {
+            if (naturalAllomanticPowers.remove(metal)) {
+                markNeedsPowerRefresh();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // ═══════════════════════════════════════════════
+    // ── Soul Stability ──
+    // ═══════════════════════════════════════════════
+
+    public float soulStability() {
+        return soulStability;
+    }
+
+    public void setSoulStability(float value) {
+        this.soulStability = Math.max(0.0F, Math.min(100.0F, value));
+    }
+
+    public boolean hasLinchpinSpike() {
+        return hasLinchpinSpike;
+    }
+
+    public int linchpinSpikeIndex() {
+        return linchpinSpikeIndex;
+    }
+
+    public void setLinchpinSpike(int index) {
+        if (index >= 0 && index < installedSpikes.size()) {
+            this.hasLinchpinSpike = true;
+            this.linchpinSpikeIndex = index;
+            com.not_noah.mistborn_metal_arts.hemalurgy.SoulStabilityManager.recalculateStability(this);
+        }
+    }
+
+    public void clearLinchpinSpike() {
+        this.hasLinchpinSpike = false;
+        this.linchpinSpikeIndex = -1;
+        com.not_noah.mistborn_metal_arts.hemalurgy.SoulStabilityManager.recalculateStability(this);
+    }
+
+    // ═══════════════════════════════════════════════
+    // ── Identity Contamination ──
+    // ═══════════════════════════════════════════════
+
+    public float identityContamination() {
+        return identityContamination;
+    }
+
+    public void setIdentityContamination(float value) {
+        this.identityContamination = Math.max(0.0F, Math.min(100.0F, value));
+        updateContaminationStage();
+        com.not_noah.mistborn_metal_arts.hemalurgy.SoulStabilityManager.recalculateStability(this);
+    }
+
+    public void addIdentityContamination(float amount) {
+        setIdentityContamination(identityContamination + amount);
+    }
+
+    public void reduceIdentityContamination(float amount) {
+        setIdentityContamination(identityContamination - amount);
+    }
+
+    public int contaminationStage() {
+        return contaminationStage;
+    }
+
+    private void updateContaminationStage() {
+        if (identityContamination >= 85.0F) contaminationStage = 4;
+        else if (identityContamination >= 60.0F) contaminationStage = 3;
+        else if (identityContamination >= 40.0F) contaminationStage = 2;
+        else if (identityContamination >= 20.0F) contaminationStage = 1;
+        else contaminationStage = 0;
+    }
+
+    // ═══════════════════════════════════════════════
+    // ── Savantism ──
+    // ═══════════════════════════════════════════════
+
+    public float savantProgress(Metal metal) {
+        return savantProgress.getOrDefault(metal, 0.0F);
+    }
+
+    public void setSavantProgress(Metal metal, float value) {
+        savantProgress.put(metal, Math.max(0.0F, Math.min(1.0F, value)));
+        updateSavantStage(metal);
+    }
+
+    public void addSavantProgress(Metal metal, float amount) {
+        setSavantProgress(metal, savantProgress(metal) + amount);
+    }
+
+    public int savantStage(Metal metal) {
+        return savantStage.getOrDefault(metal, 0);
+    }
+
+    private void updateSavantStage(Metal metal) {
+        float progress = savantProgress(metal);
+        int stage;
+        if (progress >= 0.95F) stage = 4;
+        else if (progress >= 0.75F) stage = 3;
+        else if (progress >= 0.50F) stage = 2;
+        else if (progress >= 0.25F) stage = 1;
+        else stage = 0;
+        savantStage.put(metal, stage);
+    }
+
+    public float getSavantBonus(Metal metal) {
+        return switch (savantStage(metal)) {
+            case 1 -> 0.05F;
+            case 2 -> 0.12F;
+            case 3 -> 0.25F;
+            case 4 -> 0.45F;
+            default -> 0.0F;
+        };
+    }
+
+    public float getSavantEfficiency(Metal metal) {
+        return switch (savantStage(metal)) {
+            case 1 -> 0.05F;
+            case 2 -> 0.10F;
+            case 3 -> 0.20F;
+            case 4 -> 0.30F;
+            default -> 0.0F;
+        };
+    }
+
+    public int getHighestSavantStage() {
+        int max = 0;
+        for (int stage : savantStage.values()) {
+            if (stage > max) max = stage;
+        }
+        return max;
+    }
+
+    public Metal getHighestSavantMetal() {
+        Metal best = null;
+        int maxStage = 0;
+        float maxProgress = 0;
+        for (Metal m : Metal.cachedValues()) {
+            int stage = savantStage(m);
+            float progress = savantProgress(m);
+            if (stage > maxStage || (stage == maxStage && progress > maxProgress)) {
+                maxStage = stage;
+                maxProgress = progress;
+                best = m;
+            }
+        }
+        return best;
+    }
+
+    // ═══════════════════════════════════════════════
+    // ── Spiritual Bloat ──
+    // ═══════════════════════════════════════════════
+
+    public float spiritualBloat() {
+        return spiritualBloat;
+    }
+
+    public void setSpiritualBloat(float value) {
+        this.spiritualBloat = Math.max(0.0F, Math.min(100.0F, value));
+        com.not_noah.mistborn_metal_arts.hemalurgy.SoulStabilityManager.recalculateStability(this);
+    }
+
+    public void addSpiritualBloat(float amount) {
+        setSpiritualBloat(spiritualBloat + amount);
+    }
+
+    public int forcedSystemCount() {
+        return forcedSystemCount;
+    }
+
+    public void setForcedSystemCount(int count) {
+        this.forcedSystemCount = Math.max(0, count);
+    }
+
+    // ═══════════════════════════════════════════════
+    // ── Lerasium Enhancement ──
+    // ═══════════════════════════════════════════════
+
+    public int lerasiumEnhancements() {
+        return lerasiumEnhancements;
+    }
+
+    public void setLerasiumEnhancements(int value) {
+        this.lerasiumEnhancements = Math.max(0, value);
+    }
+
+    public float lerasiumBonus() {
+        return lerasiumBonus;
+    }
+
+    public void setLerasiumBonus(float value) {
+        this.lerasiumBonus = Math.max(0.0F, Math.min(2.0F, value));
+    }
+
+    public float getLerasiumAlloyBonus(Metal metal) {
+        return lerasiumAlloyBonuses.getOrDefault(metal, 0.0F);
+    }
+
+    public void addLerasiumAlloyBonus(Metal metal, float amount) {
+        lerasiumAlloyBonuses.put(metal,
+                lerasiumAlloyBonuses.getOrDefault(metal, 0.0F) + amount);
+    }
+
+    public void addNaturalAllomanticPower(Metal metal) {
+        if (metal.isAllomantic()) {
+            naturalAllomanticPowers.add(metal);
+            markNeedsPowerRefresh();
+        }
+    }
+
+    public int countDuplicateSpikes(Metal metal, String powerType) {
+        int count = 0;
+        for (InstalledSpike spike : installedSpikes) {
+            if (powerType.equals(spike.powerType()) && spike.powerMetal() == metal) {
+                count++;
+            }
+        }
+        return count;
     }
 }

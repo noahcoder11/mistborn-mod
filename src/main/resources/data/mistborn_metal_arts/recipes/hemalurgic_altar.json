@@ -1,0 +1,28 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "CCC",
+    "RNR",
+    "DLD"
+  ],
+  "key": {
+    "C": {
+      "item": "minecraft:chiseled_polished_deepslate"
+    },
+    "R": {
+      "item": "minecraft:deepslate_redstone_ore"
+    },
+    "N": {
+      "item": "minecraft:nether_wart_block"
+    },
+    "D": {
+      "item": "minecraft:redstone"
+    },
+    "L": {
+      "item": "minecraft:lava_bucket"
+    }
+  },
+  "result": {
+    "item": "mistborn_metal_arts:hemalurgic_altar"
+  }
+}

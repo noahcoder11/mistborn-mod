@@ -46,7 +46,6 @@ public class HemalurgicSpikeItem extends Item {
             }
 
             if (CuriosCompat.equipSpikeFromUse(serverPlayer, stack)) {
-                serverPlayer.level().playSound(null, serverPlayer.blockPosition(), net.minecraft.sounds.SoundEvents.ANVIL_LAND, net.minecraft.sounds.SoundSource.PLAYERS, 0.65F, 0.55F);
                 serverPlayer.displayClientMessage(Component.translatable("message.mistborn_metal_arts.spike_equipped"), true);
                 return InteractionResultHolder.success(stack);
             }
@@ -78,13 +77,85 @@ public class HemalurgicSpikeItem extends Item {
     }
 
     @Override
+    public void inventoryTick(ItemStack stack, Level level, net.minecraft.world.entity.Entity entity, int slotId, boolean isSelected) {
+        if (!level.isClientSide() && charged) {
+            CompoundTag tag = stack.getOrCreateTag();
+            String state = tag.getString("StoredState");
+            if ("equipped".equals(state) || "blood".equals(state) || "aluminum".equals(state)) {
+                tag.putString("StoredState", "normal");
+                tag.putLong("LastUpdateTime", level.getGameTime());
+            }
+            if (com.not_noah.mistborn_metal_arts.hemalurgy.SpikeDecayManager.updateDecay(stack, level)) {
+                // Charge exhausted! Revert to blank spike
+                if (entity instanceof Player player) {
+                    ItemStack newStack = com.not_noah.mistborn_metal_arts.hemalurgy.SpikeDecayManager.getExhaustedStack(stack);
+                    if (slotId >= 0 && slotId < player.getInventory().getContainerSize()) {
+                        player.getInventory().setItem(slotId, newStack);
+                    } else {
+                        com.not_noah.mistborn_metal_arts.compat.CuriosCompat.replaceCurioStack(player, stack, newStack);
+                    }
+                    player.level().playSound(null, player.blockPosition(), net.minecraft.sounds.SoundEvents.ITEM_BREAK, net.minecraft.sounds.SoundSource.PLAYERS, 0.5F, 1.2F);
+                }
+            }
+        }
+    }
+
+    @Override
     public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.translatable(charged ? "tooltip.mistborn_metal_arts.charged_spike" : "tooltip.mistborn_metal_arts.spike", metal.displayName()).withStyle(charged ? ChatFormatting.RED : ChatFormatting.GRAY));
         if (charged) {
             CompoundTag tag = stack.getOrCreateTag();
             String type = tag.getString("PowerType");
-            String powerMetal = tag.getString("PowerMetal");
-            tooltip.add(Component.translatable("tooltip.mistborn_metal_arts.spike_power", type.isBlank() ? "allomancy" : type, powerMetal.isBlank() ? metal.displayName() : powerMetal).withStyle(ChatFormatting.DARK_RED));
+            if (type.isBlank()) {
+                type = "allomancy";
+            }
+            String powerMetalStr = tag.getString("PowerMetal");
+            String powerMetalNameStr = powerMetalStr.isBlank() ? metal.displayName() : Metal.byName(powerMetalStr).map(Metal::displayName).orElse(powerMetalStr);
+            Component powerMetalName = Component.literal(powerMetalNameStr);
+
+            if ("physical_strength".equals(type)) {
+                tooltip.add(Component.translatable("tooltip.mistborn_metal_arts.spike_attribute_strength").withStyle(ChatFormatting.DARK_RED));
+            } else if ("physical_sight".equals(type)) {
+                tooltip.add(Component.translatable("tooltip.mistborn_metal_arts.spike_attribute_sight").withStyle(ChatFormatting.DARK_RED));
+            } else if ("emotional_fortitude".equals(type)) {
+                tooltip.add(Component.translatable("tooltip.mistborn_metal_arts.spike_attribute_emotional").withStyle(ChatFormatting.DARK_RED));
+            } else if ("mental_fortitude".equals(type)) {
+                tooltip.add(Component.translatable("tooltip.mistborn_metal_arts.spike_attribute_mental").withStyle(ChatFormatting.DARK_RED));
+            } else if ("investiture".equals(type)) {
+                tooltip.add(Component.translatable("tooltip.mistborn_metal_arts.spike_attribute_investiture").withStyle(ChatFormatting.DARK_RED));
+            } else if ("destiny".equals(type)) {
+                tooltip.add(Component.translatable("tooltip.mistborn_metal_arts.spike_attribute_destiny").withStyle(ChatFormatting.DARK_RED));
+            } else if ("connection".equals(type)) {
+                tooltip.add(Component.translatable("tooltip.mistborn_metal_arts.spike_attribute_connection").withStyle(ChatFormatting.DARK_RED));
+            } else {
+                Component typeComp = Component.translatable("power_type.mistborn_metal_arts." + type);
+                tooltip.add(Component.translatable("tooltip.mistborn_metal_arts.spike_power", typeComp, powerMetalName).withStyle(ChatFormatting.DARK_RED));
+            }
+            
+            float strength = tag.contains("Strength") ? tag.getFloat("Strength") : 1.0F;
+
+            // Client-side decay prediction for tooltips so it's always perfectly synced and responsive in real time!
+            if (level != null && tag.contains("LastUpdateTime")) {
+                long elapsed = level.getGameTime() - tag.getLong("LastUpdateTime");
+                if (elapsed > 0) {
+                    String state = tag.getString("StoredState");
+                    double decayRate = com.not_noah.mistborn_metal_arts.hemalurgy.SpikeDecayManager.getDecayRateForState(state);
+                    strength = (float) Math.max(0.0F, strength - (decayRate * elapsed));
+                }
+            }
+
+            int percentage = Math.round(strength * 100);
+            tooltip.add(Component.translatable("tooltip.mistborn_metal_arts.spike_charge", percentage).withStyle(ChatFormatting.GOLD));
+
+            // Render decay context info
+            String state = tag.getString("StoredState");
+            if ("blood".equals(state)) {
+                tooltip.add(Component.translatable("tooltip.mistborn_metal_arts.preservation_blood").withStyle(net.minecraft.ChatFormatting.DARK_RED));
+            } else if ("aluminum".equals(state)) {
+                tooltip.add(Component.translatable("tooltip.mistborn_metal_arts.preservation_aluminum").withStyle(net.minecraft.ChatFormatting.GREEN));
+            } else {
+                tooltip.add(Component.translatable("tooltip.mistborn_metal_arts.preservation_decaying").withStyle(net.minecraft.ChatFormatting.GRAY));
+            }
         } else {
             tooltip.add(Component.translatable("tooltip.mistborn_metal_arts.blank_spike_warning").withStyle(ChatFormatting.DARK_GRAY));
         }

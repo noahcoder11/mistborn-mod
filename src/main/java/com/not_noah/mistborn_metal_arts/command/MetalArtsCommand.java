@@ -143,6 +143,23 @@ public final class MetalArtsCommand {
                         .then(Commands.literal("capability")
                                 .then(Commands.argument("player", EntityArgument.player())
                                         .executes(ctx -> debugCapability(ctx.getSource(), EntityArgument.getPlayer(ctx, "player")))))
+                        .then(Commands.literal("setstability")
+                                .then(Commands.argument("player", EntityArgument.player())
+                                        .then(Commands.argument("value", DoubleArgumentType.doubleArg(0D, 100D))
+                                                .executes(ctx -> setStability(ctx.getSource(), EntityArgument.getPlayer(ctx, "player"), DoubleArgumentType.getDouble(ctx, "value"))))))
+                        .then(Commands.literal("setcontamination")
+                                .then(Commands.argument("player", EntityArgument.player())
+                                        .then(Commands.argument("value", DoubleArgumentType.doubleArg(0D, 100D))
+                                                .executes(ctx -> setContamination(ctx.getSource(), EntityArgument.getPlayer(ctx, "player"), DoubleArgumentType.getDouble(ctx, "value"))))))
+                        .then(Commands.literal("setsavant")
+                                .then(Commands.argument("player", EntityArgument.player())
+                                        .then(Commands.argument("metal", StringArgumentType.word()).suggests((ctx, builder) -> SharedSuggestionProvider.suggest(allomancyChoices(), builder))
+                                                .then(Commands.argument("value", DoubleArgumentType.doubleArg(0D, 4.0D))
+                                                        .executes(ctx -> setSavant(ctx.getSource(), EntityArgument.getPlayer(ctx, "player"), StringArgumentType.getString(ctx, "metal"), DoubleArgumentType.getDouble(ctx, "value")))))))
+                        .then(Commands.literal("setbloat")
+                                .then(Commands.argument("player", EntityArgument.player())
+                                        .then(Commands.argument("value", DoubleArgumentType.doubleArg(0D, 100D))
+                                                .executes(ctx -> setBloat(ctx.getSource(), EntityArgument.getPlayer(ctx, "player"), DoubleArgumentType.getDouble(ctx, "value"))))))
                         .then(Commands.literal("place_kredik_shaw")
                                 .executes(ctx -> placeKredikShaw(ctx.getSource())))
                         .then(Commands.literal("locate_kredik_shaw")
@@ -386,6 +403,49 @@ public final class MetalArtsCommand {
 
     private static int debug(CommandSourceStack source, String message) {
         source.sendSuccess(() -> Component.literal(message), false);
+        return 1;
+    }
+
+    private static int setStability(CommandSourceStack source, ServerPlayer player, double value) {
+        player.getCapability(MetalArtsCapabilities.METAL_ARTS).ifPresent(data -> {
+            data.setSoulStability((float) value);
+            MetalArtsNetwork.sync(player);
+        });
+        source.sendSuccess(() -> Component.literal("Set Soul Stability of " + player.getGameProfile().getName() + " to " + value), true);
+        return 1;
+    }
+
+    private static int setContamination(CommandSourceStack source, ServerPlayer player, double value) {
+        player.getCapability(MetalArtsCapabilities.METAL_ARTS).ifPresent(data -> {
+            data.setIdentityContamination((float) value);
+            MetalArtsNetwork.sync(player);
+        });
+        source.sendSuccess(() -> Component.literal("Set Identity Contamination of " + player.getGameProfile().getName() + " to " + value), true);
+        return 1;
+    }
+
+    private static int setSavant(CommandSourceStack source, ServerPlayer player, String metalChoice, double value) {
+        Metal.byName(metalChoice).ifPresent(metal -> player.getCapability(MetalArtsCapabilities.METAL_ARTS).ifPresent(data -> {
+            float progressValue = (float) value;
+            if (value > 1.0D) {
+                if (value == 2.0D) progressValue = 0.50F;
+                else if (value == 3.0D) progressValue = 0.75F;
+                else if (value == 4.0D) progressValue = 0.95F;
+                else progressValue = 1.0F;
+            }
+            data.setSavantProgress(metal, progressValue);
+            MetalArtsNetwork.sync(player);
+        }));
+        source.sendSuccess(() -> Component.literal("Set Savant progress for " + metalChoice + " of " + player.getGameProfile().getName() + " to " + value), true);
+        return 1;
+    }
+
+    private static int setBloat(CommandSourceStack source, ServerPlayer player, double value) {
+        player.getCapability(MetalArtsCapabilities.METAL_ARTS).ifPresent(data -> {
+            data.setSpiritualBloat((float) value);
+            MetalArtsNetwork.sync(player);
+        });
+        source.sendSuccess(() -> Component.literal("Set Spiritual Bloat of " + player.getGameProfile().getName() + " to " + value), true);
         return 1;
     }
 

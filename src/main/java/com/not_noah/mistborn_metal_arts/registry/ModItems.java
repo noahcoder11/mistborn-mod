@@ -41,19 +41,17 @@ public final class ModItems {
 
     public static final RegistryObject<Item> EMPTY_GLASS_VIAL = ITEMS.register("empty_glass_vial", () -> new Item(new Item.Properties().stacksTo(64)));
     public static final RegistryObject<Item> MIXED_METAL_VIAL = ITEMS.register("mixed_metal_vial", () -> new MetalVialItem(null, true, new Item.Properties().stacksTo(16)));
-    public static final RegistryObject<Item> ALLOMANCER_TESTING_KIT = ITEMS.register("allomancer_testing_kit", () -> new Item(new Item.Properties().stacksTo(1)));
-    public static final RegistryObject<Item> FERUCHEMIST_TESTING_KIT = ITEMS.register("feruchemist_testing_kit", () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> HEMALURGIC_MANUSCRIPT = ITEMS.register("hemalurgic_manuscript", () -> new com.not_noah.mistborn_metal_arts.item.HemalurgicManuscriptItem(new Item.Properties().stacksTo(1)));
     public static final RegistryObject<Item> METAL_ARTS_GUIDEBOOK = ITEMS.register("metal_arts_guidebook", () -> new Item(new Item.Properties().stacksTo(1)));
     public static final RegistryObject<Item> SPIKE_REMOVAL_TOOL = ITEMS.register("spike_removal_tool", () -> new SpikeRemovalToolItem(new Item.Properties().stacksTo(1).durability(64)));
     public static final RegistryObject<Item> OBSIDIAN_AXE = ITEMS.register("obsidian_axe", () -> new ObsidianAxeItem(new Item.Properties().stacksTo(1).fireResistant()));
     public static final RegistryObject<Item> GLASS_DAGGER = ITEMS.register("glass_dagger", () -> new com.not_noah.mistborn_metal_arts.item.GlassDaggerItem(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> BLOOD_VIAL = ITEMS.register("blood_vial", () -> new com.not_noah.mistborn_metal_arts.item.BloodVialItem(ModBlocks.BLOOD_VIAL.get(), new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> ALUMINUM_CASING = ITEMS.register("aluminum_casing", () -> new com.not_noah.mistborn_metal_arts.item.AluminumCasingItem(ModBlocks.ALUMINUM_CASING.get(), new Item.Properties().stacksTo(1)));
 
-    public static final RegistryObject<Item> METALLURGY_TABLE = blockItem("metallurgy_table", ModBlocks.METALLURGY_TABLE);
-    public static final RegistryObject<Item> METALWORKING_TABLE = blockItem("metalworking_table", ModBlocks.METALWORKING_TABLE);
-    public static final RegistryObject<Item> ALLOY_FURNACE = blockItem("alloy_furnace", ModBlocks.ALLOY_FURNACE);
     public static final RegistryObject<Item> SPIKE_PRESS = blockItem("spike_press", ModBlocks.SPIKE_PRESS);
-    public static final RegistryObject<Item> BIND_POINT_TABLE = blockItem("bind_point_table", ModBlocks.BIND_POINT_TABLE);
-    public static final RegistryObject<Item> METALMIND_CHARGING_STAND = blockItem("metalmind_charging_stand", ModBlocks.METALMIND_CHARGING_STAND);
+    public static final RegistryObject<Item> HEMALURGIC_ALTAR = blockItem("hemalurgic_altar", ModBlocks.HEMALURGIC_ALTAR);
+    public static final RegistryObject<Item> BLOOD_PRESERVATION_TANK = ITEMS.register("blood_preservation_tank", () -> new com.not_noah.mistborn_metal_arts.item.BloodPreservationTankItem(ModBlocks.BLOOD_PRESERVATION_TANK.get(), new Item.Properties()));
     public static final RegistryObject<Item> ATIUM_GEODE_CLUSTER = blockItem("atium_geode_cluster", ModBlocks.ATIUM_GEODE_CLUSTER);
     public static final RegistryObject<Item> LERASIUM_CACHE_BLOCK = blockItem("lerasium_cache_block", ModBlocks.LERASIUM_CACHE_BLOCK);
     public static final RegistryObject<Item> METAL_CACHE = blockItem("metal_cache", ModBlocks.METAL_CACHE);
