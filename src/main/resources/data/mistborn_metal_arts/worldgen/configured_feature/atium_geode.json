@@ -34,9 +34,10 @@
       },
       "inner_placements": [
         {
-          "type": "minecraft:simple_state_provider",
-          "state": {
-            "Name": "mistborn_metal_arts:atium_cluster"
+          "Name": "mistborn_metal_arts:atium_cluster",
+          "Properties": {
+            "facing": "up",
+            "waterlogged": "false"
           }
         }
       ],
