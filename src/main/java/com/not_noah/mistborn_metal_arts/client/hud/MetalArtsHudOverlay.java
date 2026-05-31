@@ -366,6 +366,7 @@ public final class MetalArtsHudOverlay {
     private static void drawDisc(GuiGraphics graphics, float centerX, float centerY, float radius, int color) {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
+        RenderSystem.disableDepthTest();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         Tesselator tesselator = Tesselator.getInstance();
         BufferBuilder bufferBuilder = tesselator.getBuilder();
@@ -385,11 +386,13 @@ public final class MetalArtsHudOverlay {
             bufferBuilder.vertex(matrix, centerX + (float) Math.cos(angle) * radius, centerY + (float) Math.sin(angle) * radius, 0).color(r, g, b, a).endVertex();
         }
         tesselator.end();
+        RenderSystem.enableDepthTest();
     }
 
     private static void drawRingSegment(GuiGraphics graphics, float centerX, float centerY, float innerRadius, float outerRadius, float startAngleRad, float endAngleRad, int color) {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
+        RenderSystem.disableDepthTest();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         Tesselator tesselator = Tesselator.getInstance();
         BufferBuilder bufferBuilder = tesselator.getBuilder();
@@ -411,6 +414,7 @@ public final class MetalArtsHudOverlay {
             bufferBuilder.vertex(matrix, centerX + outerRadius * cos, centerY + outerRadius * sin, 0).color(r, g, b, a).endVertex();
         }
         tesselator.end();
+        RenderSystem.enableDepthTest();
     }
 
     private static int getMetalColor(Metal metal) {
