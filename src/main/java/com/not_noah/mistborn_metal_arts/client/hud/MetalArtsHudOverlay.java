@@ -48,7 +48,11 @@ public final class MetalArtsHudOverlay {
         }
 
         MetalArtsData data = ClientMetalArtsData.data();
-        if (data.allomanticPowers().isEmpty() && data.feruchemicalPowers().isEmpty()) {
+        boolean isCreative = Minecraft.getInstance().player != null && Minecraft.getInstance().player.isCreative();
+        boolean hasAnyPowers = !data.allomanticPowers().isEmpty() || !data.feruchemicalPowers().isEmpty() || !data.installedSpikes().isEmpty();
+        boolean hasSpiritualActivity = data.soulStability() < 100.0F || data.identityContamination() > 0.0F || data.spiritualBloat() > 0.0F;
+
+        if (!isCreative && !hasAnyPowers && !hasSpiritualActivity) {
             return;
         }
 
