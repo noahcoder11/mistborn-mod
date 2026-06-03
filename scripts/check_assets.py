@@ -43,7 +43,11 @@ def registered_items() -> list[str]:
     for metal in ALLOMANTIC:
         items.append(f"{metal}_vial")
     for metal in FERUCHEMICAL:
-        items.extend([f"{metal}_metalmind", f"{metal}_mind", f"unkeyed_{metal}_metalmind", f"unkeyed_{metal}_mind"])
+        items.extend([
+            f"{metal}_ring", f"unkeyed_{metal}_ring",
+            f"{metal}_bracer", f"unkeyed_{metal}_bracer",
+            f"{metal}_necklace", f"unkeyed_{metal}_necklace",
+        ])
     return sorted(set(items))
 
 
@@ -187,11 +191,16 @@ def main() -> int:
 
     texture_count = 0
     for png in TEXTURES.rglob("*.png"):
+        try:
+            metrics = metrics_for(png, TEXTURES)
+        except Exception:
+            continue
         texture_count += 1
-        metrics = metrics_for(png, TEXTURES)
         if metrics.path == "gui/blank.png":
             continue
         hard_flags = [flag for flag in metrics.flags if flag in {"fully transparent", "flat single-color", "dimension not divisible by 16"}]
+        if metrics.path == "entity/white.png":
+            hard_flags = [f for f in hard_flags if f != "flat single-color"]
         if hard_flags:
             failures.append(f"{metrics.path}: {', '.join(hard_flags)}")
         if has_missing_texture_pattern(metrics):

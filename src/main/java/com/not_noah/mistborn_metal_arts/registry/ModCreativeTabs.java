@@ -79,9 +79,13 @@ public final class ModCreativeTabs {
                     if (ModItems.METAL_VIALS.containsKey(metal)) {
                         output.accept(ModItems.METAL_VIALS.get(metal).get());
                     }
-                    if (ModItems.METALMINDS.containsKey(metal)) {
-                        output.accept(ModItems.METALMINDS.get(metal).get());
-                        output.accept(ModItems.UNKEYED_METALMINDS.get(metal).get());
+                    if (ModItems.METALMIND_RINGS.containsKey(metal)) {
+                        output.accept(ModItems.METALMIND_RINGS.get(metal).get());
+                        output.accept(ModItems.UNKEYED_METALMIND_RINGS.get(metal).get());
+                        output.accept(ModItems.METALMIND_BRACERS.get(metal).get());
+                        output.accept(ModItems.UNKEYED_METALMIND_BRACERS.get(metal).get());
+                        output.accept(ModItems.METALMIND_NECKLACES.get(metal).get());
+                        output.accept(ModItems.UNKEYED_METALMIND_NECKLACES.get(metal).get());
                     }
                     output.accept(ModItems.SPIKE_BLANKS.get(metal).get());
                     output.accept(ModItems.CHARGED_SPIKES.get(metal).get());

@@ -55,7 +55,7 @@ public class MetalbornEnemy extends Monster {
     private final MetalbornRole role;
     @Nullable
     private final ServerBossEvent bossEvent;
-    private int powerCooldown;
+    private final java.util.List<ItemStack> inventory = new java.util.ArrayList<>();
     private int reinforcementCooldown = 220;
 
     public MetalbornEnemy(EntityType<? extends MetalbornEnemy> type, Level level, MetalbornRole role) {
@@ -69,6 +69,10 @@ public class MetalbornEnemy extends Monster {
 
     public MetalbornRole role() {
         return role;
+    }
+
+    public java.util.List<ItemStack> getMobInventory() {
+        return inventory;
     }
 
     public static AttributeSupplier.Builder createAttributes(MetalbornRole role) {
@@ -102,12 +106,38 @@ public class MetalbornEnemy extends Monster {
     @Override
     protected void registerGoals() {
         goalSelector.addGoal(0, new FloatGoal(this));
-        goalSelector.addGoal(2, new MeleeAttackGoal(this, role == MetalbornRole.KANDRA ? 0.7D : 1.0D, false));
+        
+        goalSelector.addGoal(1, new com.not_noah.mistborn_metal_arts.entity.ai.DrinkVialGoal(this));
+        goalSelector.addGoal(1, new com.not_noah.mistborn_metal_arts.entity.ai.BurnMetalGoal(this));
+        goalSelector.addGoal(1, new com.not_noah.mistborn_metal_arts.entity.ai.TapMetalmindGoal(this));
+        
+        if (role == MetalbornRole.COINSHOT_BANDIT || role == MetalbornRole.MISTBORN_ASSASSIN || role == MetalbornRole.STEEL_INQUISITOR) {
+            goalSelector.addGoal(2, new com.not_noah.mistborn_metal_arts.entity.ai.SteelPushGoal(this, role == MetalbornRole.STEEL_INQUISITOR ? 1.12D : 0.82D));
+        }
+        if (role == MetalbornRole.LURCHER_GUARD || role == MetalbornRole.MISTBORN_ASSASSIN || role == MetalbornRole.STEEL_INQUISITOR) {
+            goalSelector.addGoal(2, new com.not_noah.mistborn_metal_arts.entity.ai.IronPullGoal(this, role == MetalbornRole.STEEL_INQUISITOR ? 0.82D : 0.55D));
+        }
+        if (role == MetalbornRole.RIOTER || role == MetalbornRole.SOOTHER) {
+            goalSelector.addGoal(2, new com.not_noah.mistborn_metal_arts.entity.ai.EmotionalAllomancyGoal(this));
+        }
+        if (role == MetalbornRole.SEEKER || role == MetalbornRole.STEEL_INQUISITOR) {
+            goalSelector.addGoal(2, new com.not_noah.mistborn_metal_arts.entity.ai.BronzeSeekGoal(this));
+        }
+        if (role == MetalbornRole.SMOKER) {
+            goalSelector.addGoal(2, new com.not_noah.mistborn_metal_arts.entity.ai.CoppercloudGoal(this));
+        }
+        
+        goalSelector.addGoal(3, new MeleeAttackGoal(this, role == MetalbornRole.KANDRA ? 0.7D : 1.0D, false));
         goalSelector.addGoal(6, new RandomStrollGoal(this, role == MetalbornRole.KANDRA ? 0.75D : 0.9D));
         goalSelector.addGoal(7, new LookAtPlayerGoal(this, Player.class, 8.0F));
         goalSelector.addGoal(8, new RandomLookAroundGoal(this));
+        
         targetSelector.addGoal(1, new HurtByTargetGoal(this));
         targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, true, player -> role != MetalbornRole.KANDRA));
+        
+        if (role == MetalbornRole.KOLOSS) {
+            targetSelector.addGoal(0, new com.not_noah.mistborn_metal_arts.entity.ai.KolossEmotionalControlGoal(this));
+        }
     }
 
     @Override
@@ -116,10 +146,111 @@ public class MetalbornEnemy extends Monster {
         setCustomName(Component.literal(role.displayName()));
         setPersistenceRequired();
         populateLoadout();
+        initializePowers();
         if (role == MetalbornRole.KANDRA) {
             setTarget(null);
         }
         return data;
+    }
+
+    private void initializePowers() {
+        getCapability(com.not_noah.mistborn_metal_arts.capability.MetalArtsCapabilities.METAL_ARTS).ifPresent(data -> {
+            data.setAllomancySnapped(true);
+            data.clearAllomancy();
+            data.clearFeruchemy();
+            
+            for (Metal m : Metal.cachedValues()) {
+                data.setReserve(m, 0F);
+                data.setMetalmindCharge(m, 0F);
+            }
+
+            switch (role) {
+                case COINSHOT_BANDIT -> {
+                    data.addNaturalAllomanticPower(Metal.STEEL);
+                    data.setReserve(Metal.STEEL, 200F);
+                    this.inventory.add(new ItemStack(ModItems.METAL_VIALS.get(Metal.STEEL).get(), 2));
+                }
+                case LURCHER_GUARD -> {
+                    data.addNaturalAllomanticPower(Metal.IRON);
+                    data.setReserve(Metal.IRON, 250F);
+                    data.addNaturalFeruchemicalPower(Metal.IRON);
+                    data.setMetalmindCharge(Metal.IRON, 100F);
+                    this.inventory.add(new ItemStack(ModItems.METAL_VIALS.get(Metal.IRON).get(), 2));
+                }
+                case PEWTER_THUG -> {
+                    data.addNaturalAllomanticPower(Metal.PEWTER);
+                    data.setReserve(Metal.PEWTER, 300F);
+                    data.addNaturalFeruchemicalPower(Metal.PEWTER);
+                    data.setMetalmindCharge(Metal.PEWTER, 200F);
+                    this.inventory.add(new ItemStack(ModItems.METAL_VIALS.get(Metal.PEWTER).get(), 2));
+                }
+                case TINEYE_SCOUT -> {
+                    data.addNaturalAllomanticPower(Metal.TIN);
+                    data.setReserve(Metal.TIN, 150F);
+                    data.addNaturalFeruchemicalPower(Metal.TIN);
+                    data.setMetalmindCharge(Metal.TIN, 100F);
+                    this.inventory.add(new ItemStack(ModItems.METAL_VIALS.get(Metal.TIN).get(), 2));
+                }
+                case RIOTER -> {
+                    data.addNaturalAllomanticPower(Metal.ZINC);
+                    data.setReserve(Metal.ZINC, 200F);
+                    this.inventory.add(new ItemStack(ModItems.METAL_VIALS.get(Metal.ZINC).get(), 2));
+                }
+                case SOOTHER -> {
+                    data.addNaturalAllomanticPower(Metal.BRASS);
+                    data.setReserve(Metal.BRASS, 200F);
+                    this.inventory.add(new ItemStack(ModItems.METAL_VIALS.get(Metal.BRASS).get(), 2));
+                }
+                case SEEKER -> {
+                    data.addNaturalAllomanticPower(Metal.BRONZE);
+                    data.setReserve(Metal.BRONZE, 200F);
+                    this.inventory.add(new ItemStack(ModItems.METAL_VIALS.get(Metal.BRONZE).get(), 2));
+                }
+                case SMOKER -> {
+                    data.addNaturalAllomanticPower(Metal.COPPER);
+                    data.setReserve(Metal.COPPER, 250F);
+                    this.inventory.add(new ItemStack(ModItems.METAL_VIALS.get(Metal.COPPER).get(), 2));
+                }
+                case ATIUM_SEER -> {
+                    data.addNaturalAllomanticPower(Metal.ATIUM);
+                    data.setReserve(Metal.ATIUM, 100F);
+                    data.addNaturalFeruchemicalPower(Metal.ATIUM);
+                    data.setMetalmindCharge(Metal.ATIUM, 50F);
+                    this.inventory.add(new ItemStack(ModItems.METAL_VIALS.get(Metal.ATIUM).get(), 1));
+                }
+                case MISTBORN_ASSASSIN -> {
+                    for (Metal m : Metal.cachedValues()) {
+                        if (m.isAllomantic()) {
+                            data.addNaturalAllomanticPower(m);
+                            data.setReserve(m, 400F);
+                        }
+                    }
+                    data.addNaturalFeruchemicalPower(Metal.PEWTER);
+                    data.setMetalmindCharge(Metal.PEWTER, 200F);
+                    data.addNaturalFeruchemicalPower(Metal.STEEL);
+                    data.setMetalmindCharge(Metal.STEEL, 150F);
+                    this.inventory.add(new ItemStack(ModItems.METAL_VIALS.get(Metal.PEWTER).get(), 1));
+                    this.inventory.add(new ItemStack(ModItems.METAL_VIALS.get(Metal.STEEL).get(), 1));
+                    this.inventory.add(new ItemStack(ModItems.METAL_VIALS.get(Metal.IRON).get(), 1));
+                }
+                case STEEL_INQUISITOR -> {
+                    for (Metal m : Metal.cachedValues()) {
+                        if (m.isAllomantic()) {
+                            data.addNaturalAllomanticPower(m);
+                            data.setReserve(m, 800F);
+                        }
+                        if (m.isFeruchemical()) {
+                            data.addNaturalFeruchemicalPower(m);
+                            data.setMetalmindCharge(m, 300F);
+                        }
+                    }
+                    this.inventory.add(new ItemStack(ModItems.METAL_VIALS.get(Metal.PEWTER).get(), 2));
+                    this.inventory.add(new ItemStack(ModItems.METAL_VIALS.get(Metal.STEEL).get(), 2));
+                    this.inventory.add(new ItemStack(ModItems.METAL_VIALS.get(Metal.ATIUM).get(), 1));
+                }
+                default -> {}
+            }
+        });
     }
 
     private void populateLoadout() {
@@ -159,222 +290,29 @@ public class MetalbornEnemy extends Monster {
         }
 
         updateBossBar();
-        if (powerCooldown > 0) {
-            powerCooldown--;
-        }
         if (reinforcementCooldown > 0) {
             reinforcementCooldown--;
-        }
-
-        applyPassiveEffects();
-        if (powerCooldown <= 0) {
-            useMetalbornPower(serverLevel);
-        }
-    }
-
-    private void applyPassiveEffects() {
-        switch (role) {
-            case PEWTER_THUG -> {
-                addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 60, 0, true, false));
-                addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 60, 0, true, false));
-            }
-            case KOLOSS -> addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 80, 1, true, false));
-            case ATIUM_SEER -> addEffect(new MobEffectInstance(ModEffects.ATIUM_SIGHT.get(), 60, 0, true, true));
-            case MISTBORN_ASSASSIN -> {
-                addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 60, 0, true, false));
-                addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 60, 0, true, false));
-            }
-            case STEEL_INQUISITOR -> {
-                addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 60, getHealth() < getMaxHealth() * 0.45F ? 1 : 0, true, false));
-                addEffect(new MobEffectInstance(ModEffects.HEMALURGIC_CORRUPTION.get(), 100, 2, true, true));
-            }
-            default -> {
-            }
-        }
-    }
-
-    private void useMetalbornPower(ServerLevel serverLevel) {
-        Optional<ServerPlayer> target = nearestValidPlayer(serverLevel, role == MetalbornRole.TINEYE_SCOUT || role == MetalbornRole.SEEKER || role.isBoss() ? 28D : 16D);
-        if (target.isEmpty()) {
-            powerCooldown = 30;
-            return;
-        }
-        ServerPlayer player = target.get();
-
-        switch (role) {
-            case COINSHOT_BANDIT -> steelPush(serverLevel, player, 0.82D);
-            case LURCHER_GUARD -> ironPull(serverLevel, player, 0.55D);
-            case TINEYE_SCOUT -> {
-                setTarget(player);
-                player.addEffect(new MobEffectInstance(MobEffects.GLOWING, 60, 0));
-                powerCooldown = 80;
-            }
-            case RIOTER -> riot(serverLevel, player);
-            case SOOTHER -> soothe(player);
-            case SEEKER -> seek(serverLevel, player);
-            case SMOKER -> coppercloud(serverLevel);
-            case ATIUM_SEER -> atiumFeint(serverLevel, player);
-            case MISTBORN_ASSASSIN -> {
-                if (tickCount % 2 == 0) {
-                    steelPush(serverLevel, player, 0.92D);
-                } else {
-                    ironPull(serverLevel, player, 0.62D);
-                }
-                player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 80, 0));
-            }
-            case STEEL_INQUISITOR -> {
-                if (getHealth() < getMaxHealth() * 0.5F) {
-                    atiumFeint(serverLevel, player);
-                }
-                if (tickCount % 3 == 0) {
-                    steelPush(serverLevel, player, 1.12D);
-                } else {
-                    ironPull(serverLevel, player, 0.82D);
-                }
-                seek(serverLevel, player);
-            }
-            case PEWTER_THUG, KOLOSS, KANDRA -> powerCooldown = 55;
-        }
-    }
-
-    private Optional<ServerPlayer> nearestValidPlayer(ServerLevel level, double range) {
-        return level.getEntitiesOfClass(ServerPlayer.class, new AABB(blockPosition()).inflate(range),
-                        player -> player.isAlive() && !player.isCreative() && !player.isSpectator())
-                .stream()
-                .min(Comparator.comparingDouble(this::distanceToSqr));
-    }
-
-    private void steelPush(ServerLevel level, ServerPlayer player, double strength) {
-        Vec3 direction = player.position().subtract(position());
-        if (direction.lengthSqr() < 0.01D) {
-            return;
-        }
-        Vec3 push = direction.normalize().scale(strength).add(0D, 0.16D, 0D);
-        player.setDeltaMovement(player.getDeltaMovement().add(push));
-        player.hurtMarked = true;
-        drawLine(level, getEyePosition(), player.getEyePosition(), ModParticles.METAL_LINE.get());
-        level.playSound(null, blockPosition(), SoundEvents.TRIDENT_THROW, SoundSource.HOSTILE, 0.55F, 1.45F);
-        powerCooldown = role.isBoss() ? 35 : 65;
-    }
-
-    private void ironPull(ServerLevel level, ServerPlayer player, double strength) {
-        Vec3 direction = position().subtract(player.position());
-        if (direction.lengthSqr() < 0.01D) {
-            return;
-        }
-        Vec3 pull = direction.normalize().scale(strength).add(0D, 0.05D, 0D);
-        player.setDeltaMovement(player.getDeltaMovement().add(pull));
-        player.hurtMarked = true;
-        drawLine(level, getEyePosition(), player.getEyePosition(), ModParticles.METAL_LINE.get());
-        level.playSound(null, blockPosition(), SoundEvents.CHAIN_PLACE, SoundSource.HOSTILE, 0.6F, 1.25F);
-        powerCooldown = role.isBoss() ? 34 : 70;
-    }
-
-    private void riot(ServerLevel level, ServerPlayer player) {
-        for (Monster monster : level.getEntitiesOfClass(Monster.class, getBoundingBox().inflate(12D), mob -> mob != this && mob.isAlive())) {
-            monster.setTarget(player);
-            monster.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 100, 0));
-        }
-        player.addEffect(new MobEffectInstance(ModEffects.EMOTIONAL_PRESSURE.get(), 100, 1));
-        level.sendParticles(ModParticles.EMOTIONAL_WAVE.get(), player.getX(), player.getY() + 1.0, player.getZ(), 8, 0.5, 0.5, 0.5, 0.01);
-        drawLine(level, getEyePosition(), player.getEyePosition(), ModParticles.EMOTIONAL_WAVE.get());
-        powerCooldown = 100;
-    }
-
-    private void soothe(ServerPlayer player) {
-        player.addEffect(new MobEffectInstance(ModEffects.EMOTIONAL_PRESSURE.get(), 120, 0));
-        player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 80, 0));
-        player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 0));
-        player.serverLevel().sendParticles(ModParticles.EMOTIONAL_WAVE.get(), player.getX(), player.getY() + 1.0, player.getZ(), 5, 0.4, 0.4, 0.4, 0.01);
-        powerCooldown = 120;
-    }
-
-    private void seek(ServerLevel level, ServerPlayer player) {
-        boolean trelliumShielded = player.getCapability(com.not_noah.mistborn_metal_arts.capability.MetalArtsCapabilities.METAL_ARTS)
-                .map(data -> data.isBurning(Metal.TRELLIUM) || data.installedSpikes().stream().anyMatch(s -> s.spikeMetal() == Metal.TRELLIUM))
-                .orElse(false);
-        if (trelliumShielded) {
-            return;
-        }
-
-        if (isBurningAnyMetal(player) || role.isBoss()) {
-            player.addEffect(new MobEffectInstance(MobEffects.GLOWING, 80, 0));
-            setTarget(player);
-            if (reinforcementCooldown <= 0 && role == MetalbornRole.SEEKER) {
-                spawnReinforcement(level, player.blockPosition().offset(random.nextInt(5) - 2, 0, random.nextInt(5) - 2));
-                reinforcementCooldown = 420;
-            }
-        }
-        level.sendParticles(ModParticles.BRONZE_PULSE.get(), getX(), getY() + 1.5, getZ(), 3, 0.1, 0.1, 0.1, 0.01);
-        drawLine(level, getEyePosition(), player.getEyePosition(), ModParticles.BRONZE_PULSE.get());
-        powerCooldown = role.isBoss() ? 70 : 110;
-    }
-
-    private boolean isBurningAnyMetal(ServerPlayer player) {
-        return player.getCapability(MetalArtsCapabilities.METAL_ARTS).map(data -> {
-            for (Metal metal : Metal.cachedValues()) {
-                if (data.isBurning(metal)) {
-                    return true;
-                }
-            }
-            return false;
-        }).orElse(false);
-    }
-
-    private void coppercloud(ServerLevel level) {
-        List<MetalbornEnemy> allies = level.getEntitiesOfClass(MetalbornEnemy.class, getBoundingBox().inflate(8D), LivingEntity::isAlive);
-        for (MetalbornEnemy ally : allies) {
-            ally.addEffect(new MobEffectInstance(ModEffects.COPPERCLOUD.get(), 120, 0, true, true));
-        }
-        for (int i = 0; i < 28; i++) {
-            double ox = (random.nextDouble() - 0.5D) * 8.0D;
-            double oy = random.nextDouble() * 2.6D;
-            double oz = (random.nextDouble() - 0.5D) * 8.0D;
-            level.sendParticles(ModParticles.COPPERCLOUD.get(), getX() + ox, getY() + oy, getZ() + oz, 1, 0D, 0D, 0D, 0D);
-        }
-        powerCooldown = 130;
-    }
-
-    private void atiumFeint(ServerLevel level, ServerPlayer player) {
-        addEffect(new MobEffectInstance(ModEffects.ATIUM_SIGHT.get(), 120, 1, true, true));
-        addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 80, 1, true, false));
-        player.addEffect(new MobEffectInstance(MobEffects.GLOWING, 60, 0));
-        drawLine(level, getEyePosition(), player.getEyePosition(), ModParticles.ATIUM_SHADOW.get());
-        powerCooldown = role.isBoss() ? 45 : 95;
-    }
-
-    private void spawnReinforcement(ServerLevel level, net.minecraft.core.BlockPos pos) {
-        EntityType<MetalbornEnemy> type = random.nextBoolean()
-                ? com.not_noah.mistborn_metal_arts.registry.ModEntityTypes.PEWTER_THUG.get()
-                : com.not_noah.mistborn_metal_arts.registry.ModEntityTypes.LURCHER_GUARD.get();
-        MetalbornEnemy guard = type.create(level);
-        if (guard == null) {
-            return;
-        }
-        guard.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, random.nextFloat() * 360.0F, 0F);
-        guard.finalizeSpawn(level, level.getCurrentDifficultyAt(pos), MobSpawnType.REINFORCEMENT, null, null);
-        level.addFreshEntity(guard);
-    }
-
-    private void drawLine(ServerLevel level, Vec3 start, Vec3 end, net.minecraft.core.particles.ParticleOptions particle) {
-        Vec3 delta = end.subtract(start);
-        int steps = Math.max(4, Math.min(24, (int) (delta.length() * 2.0D)));
-        for (int i = 0; i <= steps; i++) {
-            Vec3 point = start.add(delta.scale(i / (double) steps));
-            level.sendParticles(particle, point.x, point.y, point.z, 1, 0D, 0D, 0D, 0D);
         }
     }
 
     @Override
     public boolean hurt(DamageSource source, float amount) {
-        RandomSource randomSource = getRandom();
-        if ((role == MetalbornRole.ATIUM_SEER || role == MetalbornRole.MISTBORN_ASSASSIN || role.isBoss()) && randomSource.nextFloat() < (role.isBoss() ? 0.22F : 0.14F)) {
+        boolean isBurningAtium = getCapability(com.not_noah.mistborn_metal_arts.capability.MetalArtsCapabilities.METAL_ARTS).map(data -> {
+            if (data.isBurning(Metal.ATIUM) && data.getReserve(Metal.ATIUM) > 0.0F) {
+                data.consumeReserve(Metal.ATIUM, 5.0F);
+                return true;
+            }
+            return false;
+        }).orElse(false);
+
+        if (isBurningAtium && getRandom().nextFloat() < (role.isBoss() ? 0.35F : 0.20F)) {
             if (level() instanceof ServerLevel level) {
                 level.sendParticles(ModParticles.ATIUM_SHADOW.get(), getX(), getY() + getBbHeight() * 0.5D, getZ(), 12, 0.45D, 0.65D, 0.45D, 0.02D);
                 level.playSound(null, blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.HOSTILE, 0.45F, 0.65F);
             }
             return false;
         }
+
         if (role.isBoss()) {
             if (level() instanceof ServerLevel level) {
                 level.sendParticles(ModParticles.HEMALURGIC_SPARK.get(), getX(), getY() + getBbHeight() * 0.5D, getZ(), 5, 0.2D, 0.4D, 0.2D, 0.05D);
@@ -387,15 +325,82 @@ public class MetalbornEnemy extends Monster {
     }
 
     @Override
+    public net.minecraft.world.InteractionResult mobInteract(Player player, net.minecraft.world.InteractionHand hand) {
+        ItemStack held = player.getItemInHand(hand);
+        if (held.is(Items.SHEARS) && player.isShiftKeyDown() && (role == MetalbornRole.KOLOSS || role == MetalbornRole.KANDRA)) {
+            if (!level().isClientSide) {
+                if (random.nextFloat() < 0.35F) {
+                    level().playSound(null, blockPosition(), SoundEvents.SHEEP_SHEAR, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 1.0F);
+                    if (level() instanceof ServerLevel serverLevel) {
+                        serverLevel.sendParticles(ParticleTypes.DAMAGE_INDICATOR, getX(), getY() + getBbHeight() * 0.5D, getZ(), 8, 0.2D, 0.2D, 0.2D, 0.1D);
+                    }
+                    
+                    ItemStack dropStack;
+                    if (role == MetalbornRole.KOLOSS) {
+                        dropStack = new ItemStack(ModItems.CHARGED_SPIKES.get(Metal.PEWTER).get());
+                        hurt(damageSources().generic(), 30.0F);
+                        addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 400, 3));
+                        addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 400, 3));
+                    } else {
+                        dropStack = new ItemStack(ModItems.CHARGED_SPIKES.get(Metal.TIN).get());
+                        hurt(damageSources().generic(), 15.0F);
+                        removeEffect(MobEffects.INVISIBILITY);
+                    }
+                    
+                    spawnAtLocation(dropStack);
+                    held.hurtAndBreak(1, player, p -> p.broadcastBreakEvent(hand));
+                    player.displayClientMessage(Component.literal("You successfully extracted a Hemalurgic spike!"), true);
+                } else {
+                    level().playSound(null, blockPosition(), SoundEvents.SHEEP_SHEAR, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 1.6F);
+                    player.displayClientMessage(Component.literal("You failed to grab the spike! Try again."), true);
+                }
+            }
+            return net.minecraft.world.InteractionResult.sidedSuccess(level().isClientSide);
+        }
+        return super.mobInteract(player, hand);
+    }
+
+    @Override
+    public void addAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        super.addAdditionalSaveData(tag);
+        net.minecraft.nbt.ListTag invTag = new net.minecraft.nbt.ListTag();
+        for (ItemStack stack : this.inventory) {
+            invTag.add(stack.save(new net.minecraft.nbt.CompoundTag()));
+        }
+        tag.put("MobInventory", invTag);
+    }
+
+    @Override
+    public void readAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        super.readAdditionalSaveData(tag);
+        this.inventory.clear();
+        if (tag.contains("MobInventory", 9)) {
+            net.minecraft.nbt.ListTag invTag = tag.getList("MobInventory", 10);
+            for (int i = 0; i < invTag.size(); i++) {
+                ItemStack stack = ItemStack.of(invTag.getCompound(i));
+                if (!stack.isEmpty()) {
+                    this.inventory.add(stack);
+                }
+            }
+        }
+    }
+
+    @Override
     protected void dropCustomDeathLoot(DamageSource source, int looting, boolean recentlyHit) {
         super.dropCustomDeathLoot(source, looting, recentlyHit);
+        
+        for (ItemStack stack : this.inventory) {
+            if (!stack.isEmpty()) {
+                spawnAtLocation(stack);
+            }
+        }
+
         if (role.isBoss()) {
             spawnAtLocation(new ItemStack(ModItems.CHARGED_SPIKES.get(Metal.ATIUM).get()));
             spawnAtLocation(new ItemStack(ModItems.METAL_BEADS.get(Metal.ATIUM).get(), 2 + looting));
             spawnAtLocation(new ItemStack(ModItems.METAL_BEADS.get(Metal.LERASIUM).get()));
         }
         if (role == MetalbornRole.STEEL_INQUISITOR) {
-            // Always drop one obsidian axe, chance for a second
             spawnAtLocation(new ItemStack(ModItems.OBSIDIAN_AXE.get()));
             if (random.nextFloat() < 0.35F + looting * 0.1F) {
                 spawnAtLocation(new ItemStack(ModItems.OBSIDIAN_AXE.get()));

@@ -6,6 +6,7 @@ import com.not_noah.mistborn_metal_arts.capability.MetalArtsCapabilities;
 import com.not_noah.mistborn_metal_arts.capability.MetalArtsData;
 import com.not_noah.mistborn_metal_arts.config.ServerConfig;
 import com.not_noah.mistborn_metal_arts.item.HemalurgicSpikeItem;
+import com.not_noah.mistborn_metal_arts.network.MetalArtsNetwork;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -41,7 +42,10 @@ public final class CuriosIntegration {
         "physical_quadrant", "mental_quadrant", "spiritual_quadrant", "temporal_quadrant",
         "head", "necklace", "back", "body", "belt", "ring", "hands", "bracelet", "charm"
     };
-    private static final String[] METALMIND_SLOTS = {"ring", "hands", "bracelet", "necklace", "belt", "back", "head"};
+    private static final String[] METALMIND_SLOTS = {
+        "ring", "hands", "bracelet", "necklace", "belt", "back", "head",
+        "metalmind_ring", "metalmind_bracer", "metalmind_necklace"
+    };
 
     private CuriosIntegration() {
     }
@@ -239,6 +243,23 @@ public final class CuriosIntegration {
         return stack.getItem() instanceof HemalurgicSpikeItem spike && spike.charged();
     }
 
+    public static int getEquippedSpikeCount(Player player) {
+        return CuriosApi.getCuriosInventory(player).map(handler -> {
+            int equipped = 0;
+            for (String slotType : PREFERRED_SLOTS) {
+                var stacksHandler = handler.getStacksHandler(slotType);
+                if (stacksHandler.isEmpty()) continue;
+                var stacks = stacksHandler.get().getStacks();
+                for (int i = 0; i < stacks.getSlots(); i++) {
+                    if (isChargedSpike(stacks.getStackInSlot(i))) {
+                        equipped++;
+                    }
+                }
+            }
+            return equipped;
+        }).orElse(0);
+    }
+
     public static boolean replaceCurioStack(Player player, ItemStack original, ItemStack replacement) {
         Optional<ICuriosItemHandler> optional = CuriosApi.getCuriosInventory(player).resolve();
         if (optional.isEmpty()) {
@@ -294,15 +315,31 @@ public final class CuriosIntegration {
                 stack.getOrCreateTag().putLong("LastUpdateTime", entity.level().getGameTime());
                 if (prevStack.getItem() != stack.getItem()) {
                     entity.level().playSound(null, entity.blockPosition(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.55F, 0.65F);
+                    entity.getCapability(MetalArtsCapabilities.METAL_ARTS).ifPresent(data -> {
+                        data.addIdentityContamination((float) ServerConfig.VALUES.contaminationPerSpike.get().doubleValue());
+                        if (entity instanceof ServerPlayer serverPlayer) {
+                            MetalArtsNetwork.sync(serverPlayer);
+                        }
+                    });
                 }
             }
         }
 
         @Override
         public void onUnequip(SlotContext slotContext, ItemStack newStack) {
-            if (!slotContext.entity().level().isClientSide()) {
+            LivingEntity entity = slotContext.entity();
+            if (!entity.level().isClientSide()) {
                 stack.getOrCreateTag().putString("StoredState", "normal");
-                stack.getOrCreateTag().putLong("LastUpdateTime", slotContext.entity().level().getGameTime());
+                stack.getOrCreateTag().putLong("LastUpdateTime", entity.level().getGameTime());
+                if (newStack.getItem() != stack.getItem()) {
+                    entity.getCapability(MetalArtsCapabilities.METAL_ARTS).ifPresent(data -> {
+                        data.reduceIdentityContamination((float) ServerConfig.VALUES.contaminationPerSpike.get().doubleValue());
+                        data.setSpiritualScarring(data.spiritualScarring() + 2.0F); // Unequipping a spike curios slot inflicts +2.0% spiritual scarring
+                        if (entity instanceof ServerPlayer serverPlayer) {
+                            MetalArtsNetwork.sync(serverPlayer);
+                        }
+                    });
+                }
             }
         }
 

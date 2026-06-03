@@ -143,7 +143,7 @@ public final class SmallStructureBuilder {
             }
             case NOBLE -> {
                 chest.setItem(0, new ItemStack(ModItems.METAL_VIALS.get(Metal.GOLD).get(), 2));
-                chest.setItem(1, new ItemStack(ModItems.METALMINDS.get(Metal.GOLD).get(), 1));
+                chest.setItem(1, new ItemStack(ModItems.METALMIND_RINGS.get(Metal.GOLD).get(), 1));
                 chest.setItem(2, new ItemStack(net.minecraft.world.item.Items.GOLD_INGOT, 5));
             }
             case ATIUM -> {
@@ -155,7 +155,7 @@ public final class SmallStructureBuilder {
                 chest.setItem(1, new ItemStack(ModItems.METAL_INGOTS.get(Metal.IRON).get(), 8));
             }
             case KANDRA -> {
-                chest.setItem(0, new ItemStack(ModItems.METALMINDS.get(Metal.COPPER).get(), 1));
+                chest.setItem(0, new ItemStack(ModItems.METALMIND_RINGS.get(Metal.COPPER).get(), 1));
                 if (ServerConfig.VALUES.lerasiumExists.get() && ServerConfig.VALUES.lerasiumLoot.get() && level.random.nextFloat() < ServerConfig.VALUES.lerasiumRarity.get() * 10.0F) {
                     chest.setItem(1, new ItemStack(ModItems.METAL_BEADS.get(Metal.LERASIUM).get(), 1));
                 }

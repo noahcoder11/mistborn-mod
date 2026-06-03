@@ -34,12 +34,15 @@ public class SpiritualCleansingTalismanItem extends Item {
     public ItemStack finishUsingItem(ItemStack stack, Level level, LivingEntity entity) {
         if (entity instanceof Player player && !level.isClientSide) {
             player.getCapability(MetalArtsCapabilities.METAL_ARTS).ifPresent(data -> {
-                // Reduce contamination by 25.0F and bloat by 15.0F
+                // Reduce contamination by 25.0F, bloat by 15.0F, and spiritual scarring by 15.0F
                 float currentContam = data.identityContamination();
                 data.setIdentityContamination(Math.max(0.0F, currentContam - 25.0F));
                 
                 float currentBloat = data.spiritualBloat();
                 data.setSpiritualBloat(Math.max(0.0F, currentBloat - 15.0F));
+                
+                float currentScar = data.spiritualScarring();
+                data.setSpiritualScarring(Math.max(0.0F, currentScar - 15.0F));
                 
                 if (player instanceof ServerPlayer serverPlayer) {
                     MetalArtsNetwork.sync(serverPlayer);

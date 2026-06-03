@@ -5,6 +5,8 @@ import com.not_noah.mistborn_metal_arts.capability.MetalArtsCapabilities;
 import com.not_noah.mistborn_metal_arts.capability.MetalArtsData;
 import com.not_noah.mistborn_metal_arts.config.ServerConfig;
 import com.not_noah.mistborn_metal_arts.item.MetalmindItem;
+import com.not_noah.mistborn_metal_arts.item.HemalurgicSpikeItem;
+import net.minecraft.nbt.CompoundTag;
 import com.not_noah.mistborn_metal_arts.network.MetalArtsNetwork;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -49,6 +51,16 @@ public final class FeruchemyManager {
         if (!ServerConfig.VALUES.feruchemyEnabled.get()) {
             return;
         }
+        boolean changed = tick((LivingEntity) player, data);
+        if (changed && player.tickCount % 5 == 0) {
+            MetalArtsNetwork.sync(player, data.serializeReservesNBT());
+        }
+    }
+
+    public static boolean tick(LivingEntity entity, MetalArtsData data) {
+        if (!ServerConfig.VALUES.feruchemyEnabled.get()) {
+            return false;
+        }
 
         java.util.List<Metal> activeMetals = new java.util.ArrayList<>();
         for (Metal metal : Metal.cachedValues()) {
@@ -61,44 +73,79 @@ public final class FeruchemyManager {
         for (Metal m : Metal.cachedValues()) {
             if (m.isFeruchemical()) {
                 int mode = activeMetals.contains(m) ? data.feruchemyMode(m) : 0;
-                cleanupModifiersAndEffects(player, m, mode);
+                cleanupModifiersAndEffects(entity, m, mode);
             }
         }
 
         if (activeMetals.isEmpty()) {
-            return;
+            return false;
         }
 
         boolean changed = false;
-        java.util.Map<Metal, ItemStack> metalminds = findAllMetalminds(player, activeMetals);
 
         for (Metal metal : activeMetals) {
             int mode = data.feruchemyMode(metal);
-            ItemStack metalmind = metalminds.get(metal);
             
-            if (metalmind == null || metalmind.isEmpty()) {
-                data.stopFeruchemy(metal);
-                cleanupModifiersAndEffects(player, metal, 0);
-                changed = true;
-                continue;
-            }
+            if (entity instanceof ServerPlayer player) {
+                java.util.List<IMetalSource> sources = findMetalSources(player, data, metal);
+                
+                if (sources.isEmpty()) {
+                    data.stopFeruchemy(metal);
+                    cleanupModifiersAndEffects(player, metal, 0);
+                    changed = true;
+                    continue;
+                }
 
-            if (!canUse(player, data, metalmind, metal)) {
-                data.stopFeruchemy(metal);
-                cleanupModifiersAndEffects(player, metal, 0);
-                player.displayClientMessage(Component.translatable("message.mistborn_metal_arts.metalmind_rejects", metal.displayName()), true);
-                changed = true;
-                continue;
+                sources.removeIf(source -> {
+                    if (source instanceof ItemStackSource itemSource) {
+                        ItemStack stack = itemSource.getStack();
+                        if (stack.getItem() instanceof MetalmindItem) {
+                            return !canUse(player, data, stack, metal);
+                        }
+                    }
+                    return false;
+                });
+
+                if (sources.isEmpty()) {
+                    data.stopFeruchemy(metal);
+                    cleanupModifiersAndEffects(player, metal, 0);
+                    player.displayClientMessage(Component.translatable("message.mistborn_metal_arts.metalmind_rejects", metal.displayName()), true);
+                    changed = true;
+                    continue;
+                }
+
+                changed |= mode < 0 ? store(player, data, sources, metal) : tap(player, data, sources, metal);
+            } else {
+                // For mobs, we only tap (mode > 0)
+                if (mode > 0) {
+                    float charge = data.getMetalmindCharge(metal);
+                    if (charge <= 0.0F) {
+                        data.stopFeruchemy(metal);
+                        cleanupModifiersAndEffects(entity, metal, 0);
+                        changed = true;
+                        continue;
+                    }
+                    float baseRate = ServerConfig.VALUES.feruchemyTapRate.get().floatValue();
+                    float drainMultiplier = (float) (mode * Math.pow(1.5D, mode - 1));
+                    float rate = baseRate * drainMultiplier;
+                    float toDrain = rate;
+                    float drained = Math.min(toDrain, charge);
+                    
+                    data.setMetalmindCharge(metal, charge - drained);
+                    applyTapBenefit(entity, data, null, metal, (float) mode);
+                    changed = true;
+                } else {
+                    data.stopFeruchemy(metal);
+                    cleanupModifiersAndEffects(entity, metal, 0);
+                    changed = true;
+                }
             }
-            changed |= mode < 0 ? store(player, data, metalmind, metal) : tap(player, data, metalmind, metal);
         }
 
-        if (changed && player.tickCount % 5 == 0) {
-            MetalArtsNetwork.sync(player, data.serializeReservesNBT());
-        }
+        return changed;
     }
 
-    public static void cleanupModifiersAndEffects(ServerPlayer player, Metal metal, int mode) {
+    public static void cleanupModifiersAndEffects(LivingEntity player, Metal metal, int mode) {
         switch (metal) {
             case IRON -> {
                 AttributeInstance kbInstance = player.getAttribute(Attributes.KNOCKBACK_RESISTANCE);
@@ -146,43 +193,206 @@ public final class FeruchemyManager {
         }
     }
 
-    private static java.util.Map<Metal, ItemStack> findAllMetalminds(ServerPlayer player, java.util.List<Metal> metals) {
-        java.util.Map<Metal, ItemStack> result = new java.util.EnumMap<>(Metal.class);
-        java.util.Set<Metal> toFind = new java.util.HashSet<>(metals);
+    public interface IMetalSource {
+        Metal metal();
+        float getCharge();
+        void setCharge(float amount);
+        float getCapacity();
+    }
 
-        // Check Curios first
-        for (Metal metal : metals) {
-            ItemStack curio = com.not_noah.mistborn_metal_arts.compat.CuriosCompat.findMetalmind(player, metal);
-            if (!curio.isEmpty()) {
-                result.put(metal, curio);
-                toFind.remove(metal);
-            }
+    public static class InstalledSpikeSource implements IMetalSource {
+        private final MetalArtsData data;
+        private final int index;
+        private final MetalArtsData.InstalledSpike spike;
+
+        public InstalledSpikeSource(MetalArtsData data, int index, MetalArtsData.InstalledSpike spike) {
+            this.data = data;
+            this.index = index;
+            this.spike = spike;
         }
 
-        if (toFind.isEmpty()) return result;
-
-        // Check inventory
-        for (ItemStack stack : player.getInventory().items) {
-            if (stack.getItem() instanceof MetalmindItem item) {
-                Metal metal = item.metal();
-                if (toFind.contains(metal)) {
-                    result.putIfAbsent(metal, stack);
-                }
-            }
+        @Override
+        public Metal metal() {
+            return spike.spikeMetal();
         }
+
+        @Override
+        public float getCharge() {
+            return spike.feruchemicalCharge();
+        }
+
+        @Override
+        public void setCharge(float amount) {
+            data.updateSpikeFeruchemicalCharge(index, amount);
+        }
+
+        @Override
+        public float getCapacity() {
+            return 150.0F;
+        }
+    }
+
+    public static class ItemStackSource implements IMetalSource {
+        private final ItemStack stack;
+        private final Metal metal;
+        private final float capacity;
+
+        public ItemStackSource(ItemStack stack, Metal metal, float capacity) {
+            this.stack = stack;
+            this.metal = metal;
+            this.capacity = capacity;
+        }
+
+        @Override
+        public Metal metal() {
+            return metal;
+        }
+
+        @Override
+        public float getCharge() {
+            return getChargeFromStack(stack);
+        }
+
+        @Override
+        public void setCharge(float amount) {
+            setChargeToStack(stack, amount, capacity);
+        }
+
+        @Override
+        public float getCapacity() {
+            return capacity;
+        }
+
+        public ItemStack getStack() {
+            return stack;
+        }
+    }
+
+    public static float getCapacityForSource(ItemStack stack, Metal metal) {
+        if (stack.getItem() instanceof MetalmindItem) {
+            return MetalmindItem.getCapacity(stack);
+        }
+        if (stack.getItem() instanceof HemalurgicSpikeItem spike) {
+            return spike.charged() ? 150.0F : 500.0F;
+        }
+        String regName = stack.getItem().builtInRegistryHolder().key().location().getPath().toLowerCase();
+        if (regName.contains("chestplate")) return 4000.0F;
+        if (regName.contains("leggings")) return 3000.0F;
+        if (regName.contains("helmet")) return 2000.0F;
+        if (regName.contains("boots")) return 1500.0F;
+        if (regName.contains("block")) return 9000.0F;
+        if (regName.contains("ingot")) return 1000.0F;
+        if (regName.contains("nugget")) return 110.0F;
+        return 500.0F;
+    }
+
+    public static float getChargeFromStack(ItemStack stack) {
+        if (stack.getItem() instanceof MetalmindItem) {
+            return MetalmindItem.getCharge(stack);
+        }
+        CompoundTag tag = stack.getTag();
+        return tag != null ? tag.getFloat("FeruchemicalCharge") : 0.0F;
+    }
+
+    public static void setChargeToStack(ItemStack stack, float amount, float capacity) {
+        if (stack.getItem() instanceof MetalmindItem) {
+            MetalmindItem.setCharge(stack, amount);
+            return;
+        }
+        CompoundTag tag = stack.getOrCreateTag();
+        tag.putFloat("FeruchemicalCharge", Math.max(0.0F, Math.min(capacity, amount)));
+    }
+
+    public static boolean isMadeOfMetal(ItemStack stack, Metal metal) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        if (stack.getItem() instanceof MetalmindItem item) {
+            return item.metal() == metal;
+        }
+        if (stack.getItem() instanceof HemalurgicSpikeItem spike) {
+            return spike.metal() == metal;
+        }
+        var resource = stack.getItem().builtInRegistryHolder().key().location();
+        String path = resource.getPath().toLowerCase();
+        String metalName = metal.id().toLowerCase();
+        return path.contains(metalName);
+    }
+
+    private static final String[] ALL_CURIOS_SLOTS = {
+        "physical_quadrant", "mental_quadrant", "spiritual_quadrant", "temporal_quadrant",
+        "head", "necklace", "back", "body", "belt", "ring", "hands", "bracelet", "charm",
+        "metalmind_ring", "metalmind_bracer", "metalmind_necklace"
+    };
+
+    public static java.util.List<IMetalSource> findMetalSources(Player player, MetalArtsData data, Metal metal) {
+        java.util.List<IMetalSource> sources = new java.util.ArrayList<>();
         
-        if (result.size() < metals.size()) {
-            for (ItemStack stack : player.getInventory().offhand) {
-                if (stack.getItem() instanceof MetalmindItem item) {
-                    Metal metal = item.metal();
-                    if (toFind.contains(metal)) {
-                        result.putIfAbsent(metal, stack);
-                    }
-                }
+        var spikes = data.installedSpikes();
+        for (int i = 0; i < spikes.size(); i++) {
+            var spike = spikes.get(i);
+            if (spike.spikeMetal() == metal) {
+                sources.add(new InstalledSpikeSource(data, i, spike));
             }
         }
 
-        return result;
+        if (com.not_noah.mistborn_metal_arts.compat.CuriosCompat.isLoaded()) {
+            top.theillusivec4.curios.api.CuriosApi.getCuriosInventory(player).ifPresent(handler -> {
+                for (String slotType : ALL_CURIOS_SLOTS) {
+                    handler.getStacksHandler(slotType).ifPresent(stacksHandler -> {
+                        var stacks = stacksHandler.getStacks();
+                        for (int i = 0; i < stacks.getSlots(); i++) {
+                            ItemStack stack = stacks.getStackInSlot(i);
+                            if (isMadeOfMetal(stack, metal)) {
+                                sources.add(new ItemStackSource(stack, metal, getCapacityForSource(stack, metal)));
+                            }
+                        }
+                    });
+                }
+            });
+        }
+
+        ItemStack mainHand = player.getMainHandItem();
+        if (isMadeOfMetal(mainHand, metal)) {
+            sources.add(new ItemStackSource(mainHand, metal, getCapacityForSource(mainHand, metal)));
+        }
+        ItemStack offHand = player.getOffhandItem();
+        if (isMadeOfMetal(offHand, metal)) {
+            sources.add(new ItemStackSource(offHand, metal, getCapacityForSource(offHand, metal)));
+        }
+
+        for (ItemStack armorStack : player.getArmorSlots()) {
+            if (isMadeOfMetal(armorStack, metal)) {
+                sources.add(new ItemStackSource(armorStack, metal, getCapacityForSource(armorStack, metal)));
+            }
+        }
+
+        var inv = player.getInventory();
+        for (int i = 0; i < inv.items.size(); i++) {
+            ItemStack stack = inv.items.get(i);
+            if (stack == mainHand || stack == offHand) continue;
+            boolean isArmor = false;
+            for (ItemStack armor : player.getArmorSlots()) {
+                if (stack == armor) {
+                    isArmor = true;
+                    break;
+                }
+            }
+            if (isArmor) continue;
+            
+            if (isMadeOfMetal(stack, metal)) {
+                sources.add(new ItemStackSource(stack, metal, getCapacityForSource(stack, metal)));
+            }
+        }
+
+        return sources;
+    }
+
+    public static boolean isCompounding(MetalArtsData data, Metal metal) {
+        return data.hasAllomanticPower(metal) 
+            && data.hasFeruchemicalPower(metal) 
+            && data.isBurning(metal) 
+            && data.feruchemyMode(metal) < 0;
     }
 
     public static float adjustFallDamage(ServerPlayer player, MetalArtsData data, float damageMultiplier) {
@@ -233,70 +443,486 @@ public final class FeruchemyManager {
         }
     }
 
-    private static boolean store(ServerPlayer player, MetalArtsData data, ItemStack stack, Metal metal) {
-        float charge = MetalmindItem.getCharge(stack);
-        float capacity = MetalmindItem.getCapacity(stack) * (1.0F + 0.15F * data.getLerasatiumAlloyBonus(metal));
-        if (charge >= capacity) {
+    private static boolean store(ServerPlayer player, MetalArtsData data, java.util.List<IMetalSource> sources, Metal metal) {
+        if (sources.isEmpty()) {
             data.stopFeruchemy(metal);
             cleanupModifiersAndEffects(player, metal, 0);
             return true;
         }
-        
-        float baseRate = ServerConfig.VALUES.feruchemyStoreRate.get().floatValue();
-        float rate = baseRate;
 
-        boolean stored = switch (metal) {
-            case COPPER -> storeCopper(player, stack, rate);
-            case BENDALLOY -> storeBendalloy(player, stack, rate);
-            default -> {
-                MetalmindItem.setCharge(stack, charge + rate);
-                yield true;
-            }
-        };
-        if (stored) {
-            data.setMetalmindCharge(metal, MetalmindItem.getCharge(stack));
-            applyStorePenalty(player, data, stack, metal);
+        int mode = data.feruchemyMode(metal);
+        int storeLevel = -mode;
+        if (storeLevel <= 0) return false;
+
+        float baseRate = ServerConfig.VALUES.feruchemyStoreRate.get().floatValue();
+        float rate = baseRate * storeLevel;
+        boolean compounding = isCompounding(data, metal);
+        if (compounding) {
+            rate *= 10.0F;
         }
-        return stored;
+
+        float toStore = rate;
+        boolean storedAny = false;
+
+        for (IMetalSource source : sources) {
+            float charge = source.getCharge();
+            float capacity = source.getCapacity() * (1.0F + 0.15F * data.getLerasatiumAlloyBonus(metal));
+            if (charge >= capacity) {
+                continue;
+            }
+            float room = capacity - charge;
+            float added = Math.min(toStore, room);
+
+            boolean storedInThis = false;
+            if (metal == Metal.COPPER) {
+                storedInThis = storeCopper(player, source, added);
+            } else if (metal == Metal.BENDALLOY) {
+                storedInThis = storeBendalloy(player, source, added);
+            } else {
+                source.setCharge(charge + added);
+                storedInThis = true;
+            }
+
+            if (storedInThis) {
+                storedAny = true;
+                toStore -= added;
+                if (toStore <= 0) {
+                    break;
+                }
+            }
+        }
+
+        if (storedAny) {
+            if (!sources.isEmpty()) {
+                data.setMetalmindCharge(metal, sources.get(0).getCharge());
+            }
+            if (compounding && player.tickCount % 5 == 0) {
+                ServerLevel level = player.serverLevel();
+                double x = player.getX();
+                double y = player.getY() + player.getBbHeight() * 0.5;
+                double z = player.getZ();
+                level.sendParticles(net.minecraft.core.particles.ParticleTypes.TOTEM_OF_UNDYING, x, y, z, 5, 0.5, 0.5, 0.5, 0.05);
+                level.sendParticles(net.minecraft.core.particles.ParticleTypes.GLOW, x, y, z, 5, 0.5, 0.5, 0.5, 0.05);
+            }
+            applyStorePenalty(player, data, metal, storeLevel);
+        } else {
+            data.stopFeruchemy(metal);
+            cleanupModifiersAndEffects(player, metal, 0);
+            player.displayClientMessage(Component.translatable("message.mistborn_metal_arts.metalminds_full", metal.displayName()), true);
+        }
+
+        return storedAny;
     }
 
-    private static boolean tap(ServerPlayer player, MetalArtsData data, ItemStack stack, Metal metal) {
-        float charge = MetalmindItem.getCharge(stack);
-        if (charge <= 0F) {
+    private static boolean tap(ServerPlayer player, MetalArtsData data, java.util.List<IMetalSource> sources, Metal metal) {
+        if (sources.isEmpty()) {
             data.stopFeruchemy(metal);
-            data.setMetalmindCharge(metal, 0F);
             cleanupModifiersAndEffects(player, metal, 0);
             return true;
         }
 
-        float baseRate = ServerConfig.VALUES.feruchemyTapRate.get().floatValue();
         int tapLevel = data.feruchemyMode(metal);
+        if (tapLevel <= 0) return false;
+
+        float baseRate = ServerConfig.VALUES.feruchemyTapRate.get().floatValue();
         
-        // Exponential NBT drain scaling based on tap multiplier
         float drainMultiplier = (float) (tapLevel * Math.pow(1.5D, tapLevel - 1));
         float rate = baseRate * drainMultiplier;
 
-        float NbtRate = rate / (1.0F + 0.15F * data.getLerasatiumAlloyBonus(metal));
-        if (charge < NbtRate) {
-            NbtRate = charge;
+        float toDrain = rate / (1.0F + 0.15F * data.getLerasatiumAlloyBonus(metal));
+        float remainingToDrain = toDrain;
+        boolean tappedAny = false;
+
+        for (IMetalSource source : sources) {
+            float charge = source.getCharge();
+            if (charge <= 0.0F) {
+                continue;
+            }
+            float drained = Math.min(remainingToDrain, charge);
+
+            boolean tappedInThis = false;
+            if (metal == Metal.COPPER) {
+                tappedInThis = tapCopper(player, source, drained);
+            } else if (metal == Metal.BENDALLOY) {
+                tappedInThis = tapBendalloy(player, source, drained);
+            } else {
+                source.setCharge(charge - drained);
+                tappedInThis = true;
+            }
+
+            if (tappedInThis) {
+                tappedAny = true;
+                remainingToDrain -= drained;
+                if (remainingToDrain <= 0.0F) {
+                    break;
+                }
+            }
         }
 
-        boolean tapped = switch (metal) {
-            case COPPER -> tapCopper(player, stack, NbtRate);
-            case BENDALLOY -> tapBendalloy(player, stack, NbtRate);
-            default -> {
-                MetalmindItem.setCharge(stack, charge - NbtRate);
-                yield true;
+        if (tappedAny) {
+            if (!sources.isEmpty()) {
+                data.setMetalmindCharge(metal, sources.get(0).getCharge());
             }
-        };
-        if (tapped) {
-            data.setMetalmindCharge(metal, MetalmindItem.getCharge(stack));
-            applyTapBenefit(player, data, stack, metal, tapLevel);
+            float effectiveTap = (float) tapLevel;
+            applyTapBenefit(player, data, null, metal, effectiveTap);
+        } else {
+            data.stopFeruchemy(metal);
+            data.setMetalmindCharge(metal, 0F);
+            cleanupModifiersAndEffects(player, metal, 0);
         }
-        return tapped;
+
+        return tappedAny;
     }
 
-    // Precise Lossless Minecraft XP Points Math
+    private static boolean storeCopper(ServerPlayer player, IMetalSource source, float rate) {
+        int currentXP = getPlayerXP(player);
+        if (currentXP <= 0) {
+            return false;
+        }
+        int amountToStore = Math.min(currentXP, Math.round(rate * 12));
+        if (amountToStore <= 0) amountToStore = 1;
+        
+        setPlayerXP(player, currentXP - amountToStore);
+        source.setCharge(source.getCharge() + amountToStore);
+        return true;
+    }
+
+    private static boolean tapCopper(ServerPlayer player, IMetalSource source, float rate) {
+        float currentCharge = source.getCharge();
+        if (currentCharge <= 0F) {
+            return false;
+        }
+        int amountToTap = Math.min(Math.round(rate * 12), Math.round(currentCharge));
+        if (amountToTap <= 0) amountToTap = 1;
+        
+        setPlayerXP(player, getPlayerXP(player) + amountToTap);
+        source.setCharge(currentCharge - amountToTap);
+        return true;
+    }
+
+    private static boolean storeBendalloy(ServerPlayer player, IMetalSource source, float rate) {
+        if (player.getFoodData().getFoodLevel() <= 1 && player.getFoodData().getSaturationLevel() <= 0F) {
+            return false;
+        }
+        if (player.tickCount % 20 == 0 && player.getFoodData().getFoodLevel() > 1) {
+            player.getFoodData().setFoodLevel(player.getFoodData().getFoodLevel() - 1);
+        }
+        player.causeFoodExhaustion(0.2F);
+        source.setCharge(source.getCharge() + rate);
+        return true;
+    }
+
+    private static boolean tapBendalloy(ServerPlayer player, IMetalSource source, float rate) {
+        if (player.tickCount % 10 != 0) {
+            return false;
+        }
+        if (player.getFoodData().getFoodLevel() < 20) {
+            player.getFoodData().setFoodLevel(Math.min(20, player.getFoodData().getFoodLevel() + 1));
+            source.setCharge(source.getCharge() - Math.max(1F, rate));
+            return true;
+        }
+        return false;
+    }
+
+    private static void applyStorePenalty(ServerPlayer player, MetalArtsData data, Metal metal, int storeLevel) {
+        if (isCompounding(data, metal)) {
+            cleanupModifiersAndEffects(player, metal, 1);
+            return;
+        }
+        switch (metal) {
+            case IRON -> {
+                AttributeInstance kbInstance = player.getAttribute(Attributes.KNOCKBACK_RESISTANCE);
+                if (kbInstance != null) {
+                    kbInstance.removeModifier(IRON_KB_MODIFIER_UUID);
+                    kbInstance.addTransientModifier(new AttributeModifier(IRON_KB_MODIFIER_UUID, "Iron Feruchemy Weight Storing", -0.1D * storeLevel, AttributeModifier.Operation.ADDITION));
+                }
+                AttributeInstance gravityInstance = player.getAttribute(ForgeMod.ENTITY_GRAVITY.get());
+                if (gravityInstance != null) {
+                    gravityInstance.removeModifier(IRON_GRAVITY_MODIFIER_UUID);
+                    gravityInstance.addTransientModifier(new AttributeModifier(IRON_GRAVITY_MODIFIER_UUID, "Iron Feruchemy Gravity Storing", -0.09D * storeLevel, AttributeModifier.Operation.MULTIPLY_TOTAL));
+                }
+                if (player.isInWater()) {
+                    player.setDeltaMovement(player.getDeltaMovement().add(0, 0.01D * storeLevel, 0));
+                }
+            }
+            case STEEL -> {
+                AttributeInstance speedInstance = player.getAttribute(Attributes.MOVEMENT_SPEED);
+                if (speedInstance != null) {
+                    speedInstance.removeModifier(STEEL_SPEED_MODIFIER_UUID);
+                    speedInstance.addTransientModifier(new AttributeModifier(STEEL_SPEED_MODIFIER_UUID, "Steel Feruchemy Speed Storing", -0.05D * storeLevel, AttributeModifier.Operation.MULTIPLY_TOTAL));
+                }
+                AttributeInstance attackSpeedInstance = player.getAttribute(Attributes.ATTACK_SPEED);
+                if (attackSpeedInstance != null) {
+                    attackSpeedInstance.removeModifier(STEEL_ATTACK_SPEED_MODIFIER_UUID);
+                    attackSpeedInstance.addTransientModifier(new AttributeModifier(STEEL_ATTACK_SPEED_MODIFIER_UUID, "Steel Feruchemy Attack Speed Storing", -0.08D * storeLevel, AttributeModifier.Operation.MULTIPLY_TOTAL));
+                }
+            }
+            case TIN -> {
+                player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 40, 0, false, false));
+                player.addEffect(new MobEffectInstance(MobEffects.DARKNESS, 40, 0, false, false));
+            }
+            case PEWTER -> {
+                AttributeInstance damageInstance = player.getAttribute(Attributes.ATTACK_DAMAGE);
+                if (damageInstance != null) {
+                    damageInstance.removeModifier(PEWTER_DAMAGE_MODIFIER_UUID);
+                    damageInstance.addTransientModifier(new AttributeModifier(PEWTER_DAMAGE_MODIFIER_UUID, "Pewter Feruchemy Strength Storing", -0.5D * storeLevel, AttributeModifier.Operation.ADDITION));
+                }
+            }
+            case GOLD -> {
+                AttributeInstance healthInstance = player.getAttribute(Attributes.MAX_HEALTH);
+                if (healthInstance != null) {
+                    healthInstance.removeModifier(GOLD_HEALTH_MODIFIER_UUID);
+                    double healthPct = player.getHealth() / player.getMaxHealth();
+                    healthInstance.addTransientModifier(new AttributeModifier(GOLD_HEALTH_MODIFIER_UUID, "Gold Feruchemy Health Storing", -2.0D * storeLevel, AttributeModifier.Operation.ADDITION));
+                    player.setHealth((float) Math.min(player.getMaxHealth(), player.getMaxHealth() * healthPct));
+                }
+                player.addEffect(new MobEffectInstance(MobEffects.HUNGER, 30, 0, false, false));
+            }
+            case BRASS -> {
+                player.setTicksFrozen(Math.min(player.getTicksFrozen() + storeLevel, 140));
+                player.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 40, 0, false, false));
+            }
+            case ZINC -> {
+                player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, Math.max(0, storeLevel / 2), false, false));
+                player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 40, Math.max(0, storeLevel / 3), false, false));
+            }
+            case BRONZE -> {
+                player.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, 40, storeLevel - 1, false, false));
+                player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, Math.max(0, storeLevel / 3), false, false));
+                if (player.tickCount % 60 == 0) {
+                    player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 20, 0, false, false));
+                }
+            }
+            case ELECTRUM -> {
+                player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 40, Math.max(0, storeLevel / 2), false, false));
+                player.addEffect(new MobEffectInstance(MobEffects.UNLUCK, 40, Math.max(0, storeLevel / 2), false, false));
+            }
+            case CHROMIUM -> {
+                player.addEffect(new MobEffectInstance(MobEffects.UNLUCK, 40, Math.max(0, storeLevel / 2), false, false));
+            }
+            case NICROSIL -> {
+                if (!data.burningMetals().isEmpty()) {
+                    data.stopAllBurning();
+                    player.displayClientMessage(Component.literal("Allomancy locked out while storing Investiture!").withStyle(net.minecraft.ChatFormatting.RED), true);
+                }
+            }
+            case TRELLIUM -> {
+                player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 40, 0, false, false));
+                player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, storeLevel - 1, false, false));
+            }
+            case RAYSIUM -> {
+                if (player.tickCount % 20 == 0) {
+                    data.burningMetals().stream()
+                        .filter(m -> m != Metal.RAYSIUM)
+                        .forEach(m -> data.consumeReserve(m, 5.0F * storeLevel));
+                }
+            }
+            case TANAVASTIUM -> {
+            }
+            case ATIUM -> {
+                player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, storeLevel - 1, false, false));
+                player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 40, storeLevel - 1, false, false));
+            }
+            default -> {}
+        }
+    }
+
+    private static void applyTapBenefit(LivingEntity player, MetalArtsData data, ItemStack stack, Metal metal, float tapLevel) {
+        switch (metal) {
+            case IRON -> {
+                AttributeInstance kbInstance = player.getAttribute(Attributes.KNOCKBACK_RESISTANCE);
+                if (kbInstance != null) {
+                    kbInstance.removeModifier(IRON_KB_MODIFIER_UUID);
+                    kbInstance.addTransientModifier(new AttributeModifier(IRON_KB_MODIFIER_UUID, "Iron Feruchemy Weight Tapping", 0.25D * tapLevel, AttributeModifier.Operation.ADDITION));
+                }
+                AttributeInstance gravityInstance = player.getAttribute(ForgeMod.ENTITY_GRAVITY.get());
+                if (gravityInstance != null) {
+                    gravityInstance.removeModifier(IRON_GRAVITY_MODIFIER_UUID);
+                    gravityInstance.addTransientModifier(new AttributeModifier(IRON_GRAVITY_MODIFIER_UUID, "Iron Feruchemy Gravity Tapping", 0.45D * tapLevel, AttributeModifier.Operation.MULTIPLY_TOTAL));
+                }
+                if (player.isInWater()) {
+                    player.setDeltaMovement(player.getDeltaMovement().add(0, -0.15D * tapLevel, 0));
+                }
+            }
+            case STEEL -> {
+                AttributeInstance speedInstance = player.getAttribute(Attributes.MOVEMENT_SPEED);
+                if (speedInstance != null) {
+                    speedInstance.removeModifier(STEEL_SPEED_MODIFIER_UUID);
+                    speedInstance.addTransientModifier(new AttributeModifier(STEEL_SPEED_MODIFIER_UUID, "Steel Feruchemy Speed Tapping", 0.12D * tapLevel * tapLevel, AttributeModifier.Operation.MULTIPLY_TOTAL));
+                }
+                AttributeInstance attackSpeedInstance = player.getAttribute(Attributes.ATTACK_SPEED);
+                if (attackSpeedInstance != null) {
+                    attackSpeedInstance.removeModifier(STEEL_ATTACK_SPEED_MODIFIER_UUID);
+                    attackSpeedInstance.addTransientModifier(new AttributeModifier(STEEL_ATTACK_SPEED_MODIFIER_UUID, "Steel Feruchemy Attack Speed Tapping", 0.35D * tapLevel, AttributeModifier.Operation.MULTIPLY_TOTAL));
+                }
+                player.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, 40, (int) tapLevel - 1, false, false));
+            }
+            case TIN -> {
+                player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 240, 0, false, false));
+                if (player.tickCount % 10 == 0) {
+                    double soundRadius = 8.0D + 4.0D * tapLevel;
+                    AABB area = player.getBoundingBox().inflate(soundRadius);
+                    for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, area, e -> e != player && e.isAlive())) {
+                        if (target.getDeltaMovement().lengthSqr() > 0.001D) {
+                            target.addEffect(new MobEffectInstance(MobEffects.GLOWING, 40, 0, false, false));
+                        }
+                    }
+                }
+            }
+            case PEWTER -> {
+                AttributeInstance damageInstance = player.getAttribute(Attributes.ATTACK_DAMAGE);
+                if (damageInstance != null) {
+                    damageInstance.removeModifier(PEWTER_DAMAGE_MODIFIER_UUID);
+                    damageInstance.addTransientModifier(new AttributeModifier(PEWTER_DAMAGE_MODIFIER_UUID, "Pewter Feruchemy Strength Tapping", 2.0D * tapLevel, AttributeModifier.Operation.ADDITION));
+                }
+                player.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, 40, (int) tapLevel - 1, false, false));
+            }
+            case GOLD -> {
+                float healAmount = 0.5F * tapLevel;
+                float bloatVal = data.spiritualBloat();
+                if (bloatVal > 50.0F) {
+                    healAmount *= 0.7F; // 30% reduction in healing efficiency
+                }
+                player.heal(healAmount);
+                player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 40, bloatVal > 50.0F ? Math.max(0, (int)(tapLevel * 0.7F)) : (int) tapLevel, false, false));
+                if (player.tickCount % 5 == 0) {
+                    player.removeEffect(MobEffects.POISON);
+                    player.removeEffect(MobEffects.WITHER);
+                }
+                if (data.spiritualScarring() > 0.0F) {
+                    data.setSpiritualScarring(data.spiritualScarring() - (0.005F * tapLevel));
+                }
+            }
+            case BRASS -> {
+                player.setTicksFrozen(0);
+                AABB area = player.getBoundingBox().inflate(2.5D + 0.5D * tapLevel);
+                for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, area, e -> e != player && e.isAlive())) {
+                    if (!(target instanceof Player p && player instanceof Player sourcePlayer && !p.canHarmPlayer(sourcePlayer))) {
+                        target.setSecondsOnFire((int) (2 * tapLevel));
+                    }
+                }
+                if (player.tickCount % 10 == 0) {
+                    BlockPos feet = player.blockPosition();
+                    for (BlockPos pos : BlockPos.betweenClosed(feet.offset(-2, -1, -2), feet.offset(2, 1, 2))) {
+                        BlockState state = player.level().getBlockState(pos);
+                        if (state.is(Blocks.SNOW) || state.is(Blocks.SNOW_BLOCK)) {
+                            player.level().setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
+                        } else if (state.is(Blocks.ICE) || state.is(Blocks.PACKED_ICE)) {
+                            player.level().setBlockAndUpdate(pos, Blocks.WATER.defaultBlockState());
+                        }
+                    }
+                }
+            }
+            case ZINC -> {
+                double zincRadius = 6.0D + 2.0D * tapLevel;
+                for (Entity entity : player.level().getEntities(player, player.getBoundingBox().inflate(zincRadius))) {
+                    if (entity instanceof Projectile) {
+                        Vec3 motion = entity.getDeltaMovement();
+                        entity.setDeltaMovement(motion.scale(1.0D - (0.08D * tapLevel)));
+                    } else if (entity instanceof Monster monster) {
+                        monster.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 20, 3, false, true));
+                    }
+                }
+                if (player.tickCount % 2 == 0) {
+                    BlockPos origin = player.blockPosition();
+                    for (BlockPos pos : BlockPos.betweenClosed(origin.offset(-3, -2, -3), origin.offset(3, 2, 3))) {
+                        net.minecraft.world.level.block.entity.BlockEntity be = player.level().getBlockEntity(pos);
+                        if (be instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity furnace) {
+                            for (int i = 0; i < (int) (tapLevel * 2); i++) {
+                                net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity.serverTick(
+                                    (ServerLevel) player.level(), pos, player.level().getBlockState(pos), furnace
+                                );
+                            }
+                        } else if (be instanceof net.minecraft.world.level.block.entity.BrewingStandBlockEntity brewing) {
+                            for (int i = 0; i < (int) (tapLevel * 2); i++) {
+                                net.minecraft.world.level.block.entity.BrewingStandBlockEntity.serverTick(
+                                    player.level(), pos, player.level().getBlockState(pos), brewing
+                                );
+                            }
+                        } else if (be instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity campfire) {
+                            for (int i = 0; i < (int) (tapLevel * 2); i++) {
+                                net.minecraft.world.level.block.entity.CampfireBlockEntity.cookTick(
+                                    player.level(), pos, player.level().getBlockState(pos), campfire
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            case BRONZE -> {
+                AABB area = player.getBoundingBox().inflate(32.0D);
+                for (Phantom phantom : player.level().getEntitiesOfClass(Phantom.class, area)) {
+                    if (phantom.getTarget() == player) {
+                        phantom.setTarget(null);
+                    }
+                }
+                if (player instanceof ServerPlayer p) {
+                    p.getStats().setValue(p, net.minecraft.stats.Stats.CUSTOM.get(net.minecraft.stats.Stats.TIME_SINCE_REST), 0);
+                }
+                
+                player.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+                player.removeEffect(MobEffects.DIG_SLOWDOWN);
+                player.removeEffect(MobEffects.WEAKNESS);
+            }
+            case ELECTRUM -> {
+                player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 40, (int) tapLevel - 1, false, false));
+                if (player.tickCount % 20 == 0 && player.getAbsorptionAmount() < 4.0F * tapLevel) {
+                    player.setAbsorptionAmount(Math.min(4.0F * tapLevel, player.getAbsorptionAmount() + 2.0F));
+                }
+                player.removeEffect(MobEffects.WEAKNESS);
+                player.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+                player.removeEffect(MobEffects.DIG_SLOWDOWN);
+                player.removeEffect(MobEffects.BAD_OMEN);
+                player.removeEffect(MobEffects.BLINDNESS);
+                player.removeEffect(MobEffects.DARKNESS);
+                player.removeEffect(MobEffects.UNLUCK);
+            }
+            case CHROMIUM -> {
+                player.addEffect(new MobEffectInstance(MobEffects.LUCK, 40, (int) tapLevel, false, false));
+            }
+            case NICROSIL -> {
+                if (player.tickCount % 5 == 0) {
+                    for (Metal activeBurn : data.burningMetals()) {
+                        data.fillReserve(activeBurn, 0.05F * tapLevel);
+                    }
+                }
+            }
+            case TRELLIUM -> {
+                if (player.tickCount % 20 == 0) {
+                    double radius = 16.0D + 4.0D * tapLevel;
+                    AABB area = player.getBoundingBox().inflate(radius);
+                    for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, area, e -> e != player && e.isAlive())) {
+                        target.addEffect(new MobEffectInstance(MobEffects.GLOWING, 60, 0, false, false));
+                    }
+                }
+            }
+            case RAYSIUM -> {
+                if (player.tickCount % 20 == 0) {
+                    double radius = 4.0D + 2.0D * tapLevel;
+                    AABB area = player.getBoundingBox().inflate(radius);
+                    for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, area, e -> e != player && e.isAlive())) {
+                        if (target instanceof Monster || (target instanceof Player p && p != player)) {
+                            float damage = 1.5F * tapLevel;
+                            target.hurt(player.damageSources().magic(), damage);
+                            player.heal(damage * 0.5F);
+                        }
+                    }
+                }
+            }
+            case TANAVASTIUM -> {
+                player.removeEffect(MobEffects.WITHER);
+                player.removeEffect(MobEffects.WEAKNESS);
+                player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 40, (int) tapLevel - 1, false, false));
+            }
+            case ATIUM -> {
+                player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 40, (int) tapLevel - 1, false, false));
+                player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 40, (int) tapLevel - 1, false, false));
+                player.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, 40, (int) tapLevel - 1, false, false));
+            }
+            default -> {}
+        }
+    }
+
     public static int getPlayerXP(Player player) {
         return (int) (getXPForLevel(player.experienceLevel) + (player.experienceProgress * getXPForNextLevel(player.experienceLevel)));
     }
@@ -333,340 +959,7 @@ public final class FeruchemyManager {
         player.experienceProgress = (float) xp / (float) getXPForNextLevel(player.experienceLevel);
     }
 
-    private static boolean storeCopper(ServerPlayer player, ItemStack stack, float rate) {
-        int currentXP = getPlayerXP(player);
-        if (currentXP <= 0) {
-            return false;
-        }
-        int amountToStore = Math.min(currentXP, Math.round(rate * 12));
-        if (amountToStore <= 0) amountToStore = 1;
-        
-        setPlayerXP(player, currentXP - amountToStore);
-        MetalmindItem.setCharge(stack, MetalmindItem.getCharge(stack) + amountToStore);
-        return true;
-    }
-
-    private static boolean tapCopper(ServerPlayer player, ItemStack stack, float rate) {
-        float currentCharge = MetalmindItem.getCharge(stack);
-        if (currentCharge <= 0F) {
-            return false;
-        }
-        int amountToTap = Math.min(Math.round(rate * 12), Math.round(currentCharge));
-        if (amountToTap <= 0) amountToTap = 1;
-        
-        setPlayerXP(player, getPlayerXP(player) + amountToTap);
-        MetalmindItem.setCharge(stack, currentCharge - amountToTap);
-        return true;
-    }
-
-    private static boolean storeBendalloy(ServerPlayer player, ItemStack stack, float rate) {
-        if (player.getFoodData().getFoodLevel() <= 1 && player.getFoodData().getSaturationLevel() <= 0F) {
-            return false;
-        }
-        if (player.tickCount % 20 == 0 && player.getFoodData().getFoodLevel() > 1) {
-            player.getFoodData().setFoodLevel(player.getFoodData().getFoodLevel() - 1);
-        }
-        player.causeFoodExhaustion(0.2F);
-        MetalmindItem.setCharge(stack, MetalmindItem.getCharge(stack) + rate);
-        return true;
-    }
-
-    private static boolean tapBendalloy(ServerPlayer player, ItemStack stack, float rate) {
-        if (player.tickCount % 10 != 0) {
-            return false;
-        }
-        if (player.getFoodData().getFoodLevel() < 20) {
-            player.getFoodData().setFoodLevel(Math.min(20, player.getFoodData().getFoodLevel() + 1));
-            MetalmindItem.setCharge(stack, MetalmindItem.getCharge(stack) - Math.max(1F, rate));
-            return true;
-        }
-        return false;
-    }
-
-    private static void applyStorePenalty(ServerPlayer player, MetalArtsData data, ItemStack stack, Metal metal) {
-        switch (metal) {
-            case IRON -> {
-                AttributeInstance kbInstance = player.getAttribute(Attributes.KNOCKBACK_RESISTANCE);
-                if (kbInstance != null && kbInstance.getModifier(IRON_KB_MODIFIER_UUID) == null) {
-                    kbInstance.addTransientModifier(new AttributeModifier(IRON_KB_MODIFIER_UUID, "Iron Feruchemy Weight Storing", -0.6D, AttributeModifier.Operation.ADDITION));
-                }
-                AttributeInstance gravityInstance = player.getAttribute(ForgeMod.ENTITY_GRAVITY.get());
-                if (gravityInstance != null && gravityInstance.getModifier(IRON_GRAVITY_MODIFIER_UUID) == null) {
-                    gravityInstance.addTransientModifier(new AttributeModifier(IRON_GRAVITY_MODIFIER_UUID, "Iron Feruchemy Gravity Storing", -0.65D, AttributeModifier.Operation.MULTIPLY_TOTAL));
-                }
-                if (player.isInWater()) {
-                    player.setDeltaMovement(player.getDeltaMovement().add(0, 0.04D, 0));
-                }
-            }
-            case STEEL -> {
-                AttributeInstance speedInstance = player.getAttribute(Attributes.MOVEMENT_SPEED);
-                if (speedInstance != null && speedInstance.getModifier(STEEL_SPEED_MODIFIER_UUID) == null) {
-                    speedInstance.addTransientModifier(new AttributeModifier(STEEL_SPEED_MODIFIER_UUID, "Steel Feruchemy Speed Storing", -0.3D, AttributeModifier.Operation.MULTIPLY_TOTAL));
-                }
-                AttributeInstance attackSpeedInstance = player.getAttribute(Attributes.ATTACK_SPEED);
-                if (attackSpeedInstance != null && attackSpeedInstance.getModifier(STEEL_ATTACK_SPEED_MODIFIER_UUID) == null) {
-                    attackSpeedInstance.addTransientModifier(new AttributeModifier(STEEL_ATTACK_SPEED_MODIFIER_UUID, "Steel Feruchemy Attack Speed Storing", -0.5D, AttributeModifier.Operation.MULTIPLY_TOTAL));
-                }
-            }
-            case TIN -> {
-                player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 40, 0, false, false));
-                player.addEffect(new MobEffectInstance(MobEffects.DARKNESS, 40, 0, false, false));
-            }
-            case PEWTER -> {
-                AttributeInstance damageInstance = player.getAttribute(Attributes.ATTACK_DAMAGE);
-                if (damageInstance != null && damageInstance.getModifier(PEWTER_DAMAGE_MODIFIER_UUID) == null) {
-                    damageInstance.addTransientModifier(new AttributeModifier(PEWTER_DAMAGE_MODIFIER_UUID, "Pewter Feruchemy Strength Storing", -3.0D, AttributeModifier.Operation.ADDITION));
-                }
-            }
-            case GOLD -> {
-                AttributeInstance healthInstance = player.getAttribute(Attributes.MAX_HEALTH);
-                if (healthInstance != null && healthInstance.getModifier(GOLD_HEALTH_MODIFIER_UUID) == null) {
-                    double healthPct = player.getHealth() / player.getMaxHealth();
-                    healthInstance.addTransientModifier(new AttributeModifier(GOLD_HEALTH_MODIFIER_UUID, "Gold Feruchemy Health Storing", -14.0D, AttributeModifier.Operation.ADDITION));
-                    player.setHealth((float) Math.min(player.getMaxHealth(), player.getMaxHealth() * healthPct));
-                }
-                player.addEffect(new MobEffectInstance(MobEffects.HUNGER, 30, 0, false, false));
-            }
-            case BRASS -> {
-                player.setTicksFrozen(Math.min(player.getTicksFrozen() + 8, 140));
-                player.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 40, 0, false, false));
-            }
-            case ZINC -> {
-                player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, 1, false, false));
-                player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 40, 0, false, false));
-            }
-            case BRONZE -> {
-                player.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, 40, 2, false, false));
-                player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, 0, false, false));
-                if (player.tickCount % 60 == 0) {
-                    player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 20, 0, false, false));
-                }
-            }
-            case ELECTRUM -> {
-                player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 40, 1, false, false));
-                player.addEffect(new MobEffectInstance(MobEffects.UNLUCK, 40, 1, false, false));
-            }
-            case CHROMIUM -> {
-                player.addEffect(new MobEffectInstance(MobEffects.UNLUCK, 40, 2, false, false));
-            }
-            case NICROSIL -> {
-                if (!data.burningMetals().isEmpty()) {
-                    data.stopAllBurning();
-                    player.displayClientMessage(Component.literal("Allomancy locked out while storing Investiture!").withStyle(net.minecraft.ChatFormatting.RED), true);
-                }
-            }
-            case TRELLIUM -> {
-                // Storing spiritual presence — become stealthy but slow
-                player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 40, 0, false, false));
-                player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, 1, false, false));
-            }
-            case RAYSIUM -> {
-                // Storing energy — drain other active metal reserves to charge metalmind
-                if (player.tickCount % 20 == 0) {
-                    data.burningMetals().stream()
-                        .filter(m -> m != Metal.RAYSIUM)
-                        .forEach(m -> data.consumeReserve(m, 5.0F));
-                }
-            }
-            case TANAVASTIUM -> {
-                // No storing penalty for Tanavastium — pure spiritual integrity
-            }
-            default -> {}
-        }
-    }
-
-    private static void applyTapBenefit(ServerPlayer player, MetalArtsData data, ItemStack stack, Metal metal, int tapLevel) {
-        switch (metal) {
-            case IRON -> {
-                AttributeInstance kbInstance = player.getAttribute(Attributes.KNOCKBACK_RESISTANCE);
-                if (kbInstance != null) {
-                    kbInstance.removeModifier(IRON_KB_MODIFIER_UUID);
-                    kbInstance.addTransientModifier(new AttributeModifier(IRON_KB_MODIFIER_UUID, "Iron Feruchemy Weight Tapping", 0.25D * tapLevel, AttributeModifier.Operation.ADDITION));
-                }
-                AttributeInstance gravityInstance = player.getAttribute(ForgeMod.ENTITY_GRAVITY.get());
-                if (gravityInstance != null) {
-                    gravityInstance.removeModifier(IRON_GRAVITY_MODIFIER_UUID);
-                    gravityInstance.addTransientModifier(new AttributeModifier(IRON_GRAVITY_MODIFIER_UUID, "Iron Feruchemy Gravity Tapping", 0.45D * tapLevel, AttributeModifier.Operation.MULTIPLY_TOTAL));
-                }
-                if (player.isInWater()) {
-                    player.setDeltaMovement(player.getDeltaMovement().add(0, -0.15D * tapLevel, 0));
-                }
-            }
-            case STEEL -> {
-                AttributeInstance speedInstance = player.getAttribute(Attributes.MOVEMENT_SPEED);
-                if (speedInstance != null) {
-                    speedInstance.removeModifier(STEEL_SPEED_MODIFIER_UUID);
-                    speedInstance.addTransientModifier(new AttributeModifier(STEEL_SPEED_MODIFIER_UUID, "Steel Feruchemy Speed Tapping", 0.12D * tapLevel * tapLevel, AttributeModifier.Operation.MULTIPLY_TOTAL));
-                }
-                AttributeInstance attackSpeedInstance = player.getAttribute(Attributes.ATTACK_SPEED);
-                if (attackSpeedInstance != null) {
-                    attackSpeedInstance.removeModifier(STEEL_ATTACK_SPEED_MODIFIER_UUID);
-                    attackSpeedInstance.addTransientModifier(new AttributeModifier(STEEL_ATTACK_SPEED_MODIFIER_UUID, "Steel Feruchemy Attack Speed Tapping", 0.35D * tapLevel, AttributeModifier.Operation.MULTIPLY_TOTAL));
-                }
-                player.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, 40, tapLevel - 1, false, false));
-            }
-            case TIN -> {
-                player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 240, 0, false, false));
-                if (player.tickCount % 10 == 0) {
-                    double soundRadius = 8.0D + 4.0D * tapLevel;
-                    AABB area = player.getBoundingBox().inflate(soundRadius);
-                    for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, area, e -> e != player && e.isAlive())) {
-                        if (target.getDeltaMovement().lengthSqr() > 0.001D) {
-                            target.addEffect(new MobEffectInstance(MobEffects.GLOWING, 40, 0, false, false));
-                        }
-                    }
-                }
-            }
-            case PEWTER -> {
-                AttributeInstance damageInstance = player.getAttribute(Attributes.ATTACK_DAMAGE);
-                if (damageInstance != null) {
-                    damageInstance.removeModifier(PEWTER_DAMAGE_MODIFIER_UUID);
-                    damageInstance.addTransientModifier(new AttributeModifier(PEWTER_DAMAGE_MODIFIER_UUID, "Pewter Feruchemy Strength Tapping", 2.0D * tapLevel, AttributeModifier.Operation.ADDITION));
-                }
-                player.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, 40, tapLevel - 1, false, false));
-            }
-            case GOLD -> {
-                float healAmount = 0.5F * tapLevel;
-                float bloatVal = data.spiritualBloat();
-                if (bloatVal > 50.0F) {
-                    healAmount *= 0.7F; // 30% reduction in healing efficiency
-                }
-                player.heal(healAmount);
-                player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 40, bloatVal > 50.0F ? Math.max(0, (int)(tapLevel * 0.7F)) : tapLevel, false, false));
-                if (player.tickCount % 5 == 0) {
-                    player.removeEffect(MobEffects.POISON);
-                    player.removeEffect(MobEffects.WITHER);
-                }
-            }
-            case BRASS -> {
-                player.setTicksFrozen(0);
-                AABB area = player.getBoundingBox().inflate(2.5D + 0.5D * tapLevel);
-                for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, area, e -> e != player && e.isAlive())) {
-                    if (!(target instanceof Player p && !p.canHarmPlayer(player))) {
-                        target.setSecondsOnFire(2 * tapLevel);
-                    }
-                }
-                if (player.tickCount % 10 == 0) {
-                    BlockPos feet = player.blockPosition();
-                    for (BlockPos pos : BlockPos.betweenClosed(feet.offset(-2, -1, -2), feet.offset(2, 1, 2))) {
-                        BlockState state = player.level().getBlockState(pos);
-                        if (state.is(Blocks.SNOW) || state.is(Blocks.SNOW_BLOCK)) {
-                            player.level().setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
-                        } else if (state.is(Blocks.ICE) || state.is(Blocks.PACKED_ICE)) {
-                            player.level().setBlockAndUpdate(pos, Blocks.WATER.defaultBlockState());
-                        }
-                    }
-                }
-            }
-            case ZINC -> {
-                double zincRadius = 6.0D + 2.0D * tapLevel;
-                for (Entity entity : player.level().getEntities(player, player.getBoundingBox().inflate(zincRadius))) {
-                    if (entity instanceof Projectile) {
-                        Vec3 motion = entity.getDeltaMovement();
-                        entity.setDeltaMovement(motion.scale(1.0D - (0.08D * tapLevel)));
-                    } else if (entity instanceof Monster monster) {
-                        monster.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 20, 3, false, true));
-                    }
-                }
-                if (player.tickCount % 2 == 0) {
-                    BlockPos origin = player.blockPosition();
-                    for (BlockPos pos : BlockPos.betweenClosed(origin.offset(-3, -2, -3), origin.offset(3, 2, 3))) {
-                        net.minecraft.world.level.block.entity.BlockEntity be = player.level().getBlockEntity(pos);
-                        if (be instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity furnace) {
-                            for (int i = 0; i < tapLevel * 2; i++) {
-                                net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity.serverTick(
-                                    (ServerLevel) player.level(), pos, player.level().getBlockState(pos), furnace
-                                );
-                            }
-                        } else if (be instanceof net.minecraft.world.level.block.entity.BrewingStandBlockEntity brewing) {
-                            for (int i = 0; i < tapLevel * 2; i++) {
-                                net.minecraft.world.level.block.entity.BrewingStandBlockEntity.serverTick(
-                                    player.level(), pos, player.level().getBlockState(pos), brewing
-                                );
-                            }
-                        } else if (be instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity campfire) {
-                            for (int i = 0; i < tapLevel * 2; i++) {
-                                net.minecraft.world.level.block.entity.CampfireBlockEntity.cookTick(
-                                    player.level(), pos, player.level().getBlockState(pos), campfire
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-            case BRONZE -> {
-                AABB area = player.getBoundingBox().inflate(32.0D);
-                for (Phantom phantom : player.level().getEntitiesOfClass(Phantom.class, area)) {
-                    if (phantom.getTarget() == player) {
-                        phantom.setTarget(null);
-                    }
-                }
-                player.getStats().setValue(player, net.minecraft.stats.Stats.CUSTOM.get(net.minecraft.stats.Stats.TIME_SINCE_REST), 0);
-                
-                player.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
-                player.removeEffect(MobEffects.DIG_SLOWDOWN);
-                player.removeEffect(MobEffects.WEAKNESS);
-            }
-            case ELECTRUM -> {
-                player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 40, tapLevel - 1, false, false));
-                if (player.tickCount % 20 == 0 && player.getAbsorptionAmount() < 4.0F * tapLevel) {
-                    player.setAbsorptionAmount(Math.min(4.0F * tapLevel, player.getAbsorptionAmount() + 2.0F));
-                }
-                player.removeEffect(MobEffects.WEAKNESS);
-                player.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
-                player.removeEffect(MobEffects.DIG_SLOWDOWN);
-                player.removeEffect(MobEffects.BAD_OMEN);
-                player.removeEffect(MobEffects.BLINDNESS);
-                player.removeEffect(MobEffects.DARKNESS);
-                player.removeEffect(MobEffects.UNLUCK);
-            }
-            case CHROMIUM -> {
-                player.addEffect(new MobEffectInstance(MobEffects.LUCK, 40, tapLevel, false, false));
-            }
-            case NICROSIL -> {
-                if (player.tickCount % 5 == 0) {
-                    for (Metal activeBurn : data.burningMetals()) {
-                        data.fillReserve(activeBurn, 0.05F * tapLevel);
-                    }
-                }
-            }
-            case TRELLIUM -> {
-                // Tapping spiritual presence — glow all entities through walls
-                if (player.tickCount % 20 == 0) {
-                    double radius = 16.0D + 4.0D * tapLevel;
-                    AABB area = player.getBoundingBox().inflate(radius);
-                    for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, area, e -> e != player && e.isAlive())) {
-                        target.addEffect(new MobEffectInstance(MobEffects.GLOWING, 60, 0, false, false));
-                    }
-                }
-            }
-            case RAYSIUM -> {
-                // Tapping siphoning energy — deal magic damage and heal
-                if (player.tickCount % 20 == 0) {
-                    double radius = 4.0D + 2.0D * tapLevel;
-                    AABB area = player.getBoundingBox().inflate(radius);
-                    for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, area, e -> e != player && e.isAlive())) {
-                        if (target instanceof Monster || (target instanceof Player p && p != player)) {
-                            float damage = 1.5F * tapLevel;
-                            target.hurt(player.damageSources().magic(), damage);
-                            player.heal(damage * 0.5F);
-                        }
-                    }
-                }
-            }
-            case TANAVASTIUM -> {
-                // Tapping spiritual integrity — massive Soul Stability bonus
-                // Actual stability bonus is handled in SoulStabilityManager
-                // Here we remove negative effects
-                player.removeEffect(MobEffects.WITHER);
-                player.removeEffect(MobEffects.WEAKNESS);
-                player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 40, tapLevel - 1, false, false));
-            }
-            default -> {}
-        }
-    }
-
-    private static boolean canUse(ServerPlayer player, MetalArtsData data, ItemStack stack, Metal metal) {
+    private static boolean canUse(Player player, MetalArtsData data, ItemStack stack, Metal metal) {
         return (data.hasFeruchemicalPower(metal) || (MetalmindItem.isUnkeyed(stack) && ServerConfig.VALUES.unkeyedMetalmindsEnabled.get())) && MetalmindItem.canUse(stack, player);
     }
 }

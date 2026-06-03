@@ -35,15 +35,35 @@ public class LerasiumBeadItem extends Item {
     public ItemStack finishUsingItem(ItemStack stack, Level level, LivingEntity entity) {
         if (entity instanceof Player player && !level.isClientSide && ServerConfig.VALUES.lerasiumExists.get() && ServerConfig.VALUES.lerasiumGrantsMistborn.get()) {
             player.getCapability(MetalArtsCapabilities.METAL_ARTS).ifPresent(data -> {
-                data.setMistborn();
-                data.setAllomanticStrength(1.0F);
-                data.setAllomancySnapped(true);
+                boolean isAlreadyMistborn = true;
+                for (com.not_noah.mistborn_metal_arts.api.Metal m : com.not_noah.mistborn_metal_arts.api.Metal.cachedValues()) {
+                    if (m.isAllomantic() && !data.hasAllomanticPower(m)) {
+                        isAlreadyMistborn = false;
+                        break;
+                    }
+                }
+
+                if (!isAlreadyMistborn) {
+                    data.setMistborn();
+                    data.setAllomanticStrength(1.0F);
+                    data.setAllomancySnapped(true);
+                    player.displayClientMessage(Component.translatable("message.mistborn_metal_arts.lerasium_mistborn"), true);
+                } else {
+                    float currentBonus = data.lerasiumBonus();
+                    if (currentBonus < 2.0F) {
+                        data.setLerasiumBonus(currentBonus + 0.1F);
+                        data.setLerasiumEnhancements(data.lerasiumEnhancements() + 1);
+                        player.displayClientMessage(Component.translatable("message.mistborn_metal_arts.lerasium_boost_allomancy", String.format("%.1f", 1.0F + data.lerasiumBonus())), true);
+                    } else {
+                        player.displayClientMessage(Component.translatable("message.mistborn_metal_arts.lerasium_boost_allomancy_max"), true);
+                    }
+                }
+
                 if (player instanceof ServerPlayer serverPlayer) {
                     MetalArtsNetwork.sync(serverPlayer);
                 }
             });
             level.playSound(null, entity.blockPosition(), SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 0.8F, 1.4F);
-            player.displayClientMessage(Component.translatable("message.mistborn_metal_arts.lerasium_mistborn"), true);
         }
         if (entity instanceof Player player && player.getAbilities().instabuild) {
             return stack;

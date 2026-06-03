@@ -70,6 +70,38 @@ public final class MetalArtsClientEvents {
     }
 
     @SubscribeEvent
+    public static void registerDecorators(net.minecraftforge.client.event.RegisterItemDecorationsEvent event) {
+        net.minecraftforge.client.IItemDecorator chargeDecorator = new net.minecraftforge.client.IItemDecorator() {
+            @Override
+            public boolean render(net.minecraft.client.gui.GuiGraphics guiGraphics, net.minecraft.client.gui.Font font, net.minecraft.world.item.ItemStack stack, int x, int y) {
+                if (stack.isEmpty()) return false;
+                if (!(stack.getItem() instanceof com.not_noah.mistborn_metal_arts.item.MetalmindItem)) {
+                    for (Metal metal : Metal.cachedValues()) {
+                        if (com.not_noah.mistborn_metal_arts.feruchemy.FeruchemyManager.isMadeOfMetal(stack, metal)) {
+                            float charge = com.not_noah.mistborn_metal_arts.feruchemy.FeruchemyManager.getChargeFromStack(stack);
+                            if (charge > 0.0F) {
+                                float capacity = com.not_noah.mistborn_metal_arts.feruchemy.FeruchemyManager.getCapacityForSource(stack, metal);
+                                int barWidth = Math.round(13.0F * charge / capacity);
+                                
+                                // Render black background:
+                                guiGraphics.fill(x + 2, y + 13, x + 15, y + 15, 0xFF000000);
+                                // Render cyan bar:
+                                guiGraphics.fill(x + 2, y + 13, x + 2 + barWidth, y + 14, 0xFF00BEDC);
+                            }
+                            break;
+                        }
+                    }
+                }
+                return false;
+            }
+        };
+
+        for (net.minecraft.world.item.Item item : net.minecraftforge.registries.ForgeRegistries.ITEMS) {
+            event.register(item, chargeDecorator);
+        }
+    }
+
+    @SubscribeEvent
     public static void registerKeys(RegisterKeyMappingsEvent event) {
         event.register(MetalArtsKeyMappings.OPEN_MENU);
         event.register(MetalArtsKeyMappings.BURN_SELECTED);
@@ -81,6 +113,7 @@ public final class MetalArtsClientEvents {
         event.register(MetalArtsKeyMappings.ALUMINUM_PURGE);
         event.register(MetalArtsKeyMappings.TOGGLE_FERUCHEMY);
         event.register(MetalArtsKeyMappings.TIME_BUBBLE);
+        event.register(MetalArtsKeyMappings.OPEN_SOUL_STATUS);
     }
 
     @SubscribeEvent
@@ -247,6 +280,25 @@ public final class MetalArtsClientEvents {
         }
 
         @SubscribeEvent
+        public static void onItemTooltip(net.minecraftforge.event.entity.player.ItemTooltipEvent event) {
+            net.minecraft.world.item.ItemStack stack = event.getItemStack();
+            if (stack.isEmpty()) return;
+            
+            if (!(stack.getItem() instanceof com.not_noah.mistborn_metal_arts.item.MetalmindItem)) {
+                for (Metal metal : Metal.cachedValues()) {
+                    if (com.not_noah.mistborn_metal_arts.feruchemy.FeruchemyManager.isMadeOfMetal(stack, metal)) {
+                        float charge = com.not_noah.mistborn_metal_arts.feruchemy.FeruchemyManager.getChargeFromStack(stack);
+                        if (charge > 0.0F) {
+                            float capacity = com.not_noah.mistborn_metal_arts.feruchemy.FeruchemyManager.getCapacityForSource(stack, metal);
+                            event.getToolTip().add(net.minecraft.network.chat.Component.literal("§3• " + metal.displayName() + " Feruchemical Charge: " + Math.round(charge) + " / " + Math.round(capacity)));
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        @SubscribeEvent
         public static void clientTick(TickEvent.ClientTickEvent event) {
             if (Minecraft.getInstance().player == null) {
                 return;
@@ -266,7 +318,7 @@ public final class MetalArtsClientEvents {
 
             while (MetalArtsKeyMappings.OPEN_MENU.consumeClick()) {
                 MetalArtsData data = ClientMetalArtsData.data();
-                if (!data.allomanticPowersRaw().isEmpty() || !data.feruchemicalPowers().isEmpty()) {
+                if (!data.allomanticPowers().isEmpty() || !data.feruchemicalPowers().isEmpty()) {
                     Minecraft.getInstance().setScreen(new MetalArtsRadialScreen());
                 }
             }
@@ -297,6 +349,11 @@ public final class MetalArtsClientEvents {
             while (MetalArtsKeyMappings.TIME_BUBBLE.consumeClick()) {
                 send(MetalAction.TIME_BUBBLE);
             }
+            if (MetalArtsKeyMappings.OPEN_SOUL_STATUS.isDown()) {
+                if (Minecraft.getInstance().screen == null) {
+                    Minecraft.getInstance().setScreen(new com.not_noah.mistborn_metal_arts.client.screen.SoulStatusScreen());
+                }
+            }
 
             LocalPlayer player = Minecraft.getInstance().player;
             if (player != null) {
@@ -310,6 +367,20 @@ public final class MetalArtsClientEvents {
                 if (player.hasEffect(ModEffects.EMOTIONAL_SOOTHE.get())) {
                     player.setSprinting(false);
                     Minecraft.getInstance().options.keySprint.setDown(false);
+                }
+
+                // Immersive client-side ambient whispers when highly contaminated (>60%) or low stability (<40%)
+                MetalArtsData maData = ClientMetalArtsData.data();
+                float stability = maData.soulStability();
+                float contamination = maData.identityContamination();
+                if (stability < 40.0F || contamination > 60.0F) {
+                    int whisperInterval = 300; // ~15 seconds by default
+                    if (stability < 20.0F || contamination > 85.0F) {
+                        whisperInterval = 120; // ~6 seconds for critical states
+                    }
+                    if (player.tickCount % whisperInterval == 0 && player.getRandom().nextFloat() < 0.45F) {
+                        com.not_noah.mistborn_metal_arts.hemalurgy.IdentityContaminationManager.playWhisperSound(player);
+                    }
                 }
             }
         }
@@ -710,7 +781,7 @@ public final class MetalArtsClientEvents {
             int maxLines = 256; // Limit lines for performance in dense areas
 
             for (BlockPos pos : BlockPos.betweenClosed(origin.offset(-bRange, -bRange, -bRange), origin.offset(bRange, bRange, bRange))) {
-                if (player.level().getBlockState(pos).is(ModTags.Blocks.METALLIC_BLOCKS)) {
+                if (MetalForceHelper.isMetallicBlock(player.level(), pos)) {
                     Vec3 targetPos = Vec3.atCenterOf(pos);
                     double dist = chestPos.distanceTo(targetPos);
                     if (dist <= range) {
@@ -1049,6 +1120,31 @@ public final class MetalArtsClientEvents {
                 com.mojang.blaze3d.systems.RenderSystem.depthMask(true);
                 com.mojang.blaze3d.systems.RenderSystem.enableDepthTest();
                 com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+            }
+
+            // Draw Lavender vignette for Stage 3+ contamination
+            var maData = ClientMetalArtsData.data();
+            if (maData.contaminationStage() >= 3) {
+                float contamination = maData.identityContamination();
+                float alpha = Math.min(0.65F, Math.max(0.0F, (contamination - 60.0F) / 40.0F) * 0.65F);
+                if (alpha > 0.0F) {
+                    int width = event.getWindow().getGuiScaledWidth();
+                    int height = event.getWindow().getGuiScaledHeight();
+
+                    com.mojang.blaze3d.systems.RenderSystem.disableDepthTest();
+                    com.mojang.blaze3d.systems.RenderSystem.depthMask(false);
+                    com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+                    com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
+
+                    // Beautiful translucent purple color tint tinting the vignette lavender
+                    com.mojang.blaze3d.systems.RenderSystem.setShaderColor(0.68F, 0.45F, 1.0F, alpha);
+
+                    event.getGuiGraphics().blit(VIGNETTE_LOCATION, 0, 0, 0, 0.0F, 0.0F, width, height, 1920, 1080);
+
+                    com.mojang.blaze3d.systems.RenderSystem.depthMask(true);
+                    com.mojang.blaze3d.systems.RenderSystem.enableDepthTest();
+                    com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+                }
             }
 
             player.getCapability(com.not_noah.mistborn_metal_arts.capability.MetalArtsCapabilities.BLOOD_DATA).ifPresent(data -> {

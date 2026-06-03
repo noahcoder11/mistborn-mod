@@ -33,6 +33,9 @@ public final class ModTags {
         public static final TagKey<Item> HEMALURGIC_SPIKES = ItemTags.create(id("hemalurgic_spikes"));
         public static final TagKey<Item> GOD_METALS = ItemTags.create(id("god_metals"));
         public static final TagKey<Item> METAL_ARMOR = ItemTags.create(id("metal_armor"));
+        public static final TagKey<Item> METALMIND_RINGS = ItemTags.create(id("metalmind_rings"));
+        public static final TagKey<Item> METALMIND_BRACERS = ItemTags.create(id("metalmind_bracers"));
+        public static final TagKey<Item> METALMIND_NECKLACES = ItemTags.create(id("metalmind_necklaces"));
 
         private Items() {
         }

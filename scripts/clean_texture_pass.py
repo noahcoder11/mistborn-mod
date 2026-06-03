@@ -51,10 +51,13 @@ METALS = [
     ("harmonium", "Harmonium"),
     ("malatium", "Malatium"),
     ("lerasatium", "Lerasatium"),
+    ("trellium", "Trellium"),
+    ("raysium", "Raysium"),
+    ("tanavastium", "Tanavastium"),
 ]
 METAL_IDS = [mid for mid, _ in METALS]
 ALLOMANTIC = [mid for mid in METAL_IDS if mid not in {"lerasium", "lerasatium"}]
-FERUCHEMICAL = [mid for mid in METAL_IDS if mid not in {"atium", "lerasium", "harmonium", "malatium", "lerasatium"}]
+FERUCHEMICAL = [mid for mid in METAL_IDS if mid not in {"harmonium", "malatium", "lerasatium"}]
 
 # outline, shadow, base, highlight, accent. Palettes are deliberately small.
 PALETTES = {
@@ -82,6 +85,9 @@ PALETTES = {
     "harmonium": ((100, 81, 91), (117, 114, 126), (152, 149, 170), (227, 229, 227), (192, 197, 192)),
     "malatium": ((96, 72, 55), (146, 114, 87), (178, 153, 136), (255, 247, 237), (254, 244, 236)),
     "lerasatium": ((90, 81, 100), (106, 113, 126), (115, 120, 138), (254, 255, 247), (144, 151, 159)),
+    "trellium": ((39, 28, 29), (65, 32, 36), (93, 16, 16), (145, 28, 28), (255, 38, 38)),
+    "raysium": ((119, 86, 0), (167, 132, 0), (199, 162, 0), (233, 194, 0), (255, 216, 6)),
+    "tanavastium": ((0, 95, 98), (0, 134, 137), (0, 160, 163), (0, 188, 191), (109, 234, 236)),
 }
 
 
@@ -394,19 +400,58 @@ def draw_vial(metal=None, mixed=False, empty=False):
     return c
 
 
-def draw_metalmind(metal, unkeyed=False):
+def draw_metalmind_ring(metal, unkeyed=False):
+    outline, shadow, base, high, accent = pal(metal)
+    if metal == "trellium":
+        outline = rgba((17, 17, 17))
+        shadow = rgba((58, 56, 58))
+        base = rgba((89, 86, 89))
+        high = rgba((215, 25, 35))
+    ref_path = ROOT / "references/ring_template.png"
+    w, h, pixels = read_png(ref_path)
+    c = Canvas(w, h)
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = pixels[y][x]
+            if a == 0:
+                c.set(x, y, (0, 0, 0, 0))
+            elif r == 53:
+                c.set(x, y, outline)
+            elif r == 85:
+                c.set(x, y, shadow)
+            elif r == 115:
+                c.set(x, y, base)
+            elif r == 175:
+                c.set(x, y, high)
+            else:
+                c.set(x, y, (r, g, b, a))
+    return c
+
+
+def draw_metalmind_bracer(metal, unkeyed=False):
     outline, shadow, base, high, accent = pal(metal)
     c = Canvas()
-    ring = mix(base, high, 0.18) if unkeyed else base
-    c.ellipse(8, 8, 6, 4, ring, outline)
-    c.ellipse(8, 8, 3, 2, (0, 0, 0, 0))
-    c.line(4, 7, 12, 7, high)
-    c.line(5, 10, 11, 10, shadow)
+    c.rect(3, 5, 12, 10, outline)
+    c.rect(4, 6, 11, 9, base)
+    c.line(4, 6, 11, 6, high)
+    c.line(4, 9, 11, 9, shadow)
     if unkeyed:
-        c.set(8, 5, rgba((225, 238, 238)))
-        c.set(8, 11, rgba((225, 238, 238)))
+        c.rect(7, 7, 8, 8, rgba((85, 230, 240)))
     else:
-        c.set(12, 8, accent)
+        c.rect(7, 7, 8, 8, accent)
+    return c
+
+
+def draw_metalmind_necklace(metal, unkeyed=False):
+    outline, shadow, base, high, accent = pal(metal)
+    c = Canvas()
+    c.ellipse(8, 7, 6, 5, (0, 0, 0, 0), outline)
+    c.ellipse(8, 7, 5, 4, (0, 0, 0, 0), high)
+    c.ellipse(8, 11, 2, 2, base, outline)
+    if unkeyed:
+        c.set(8, 11, rgba((85, 230, 240)))
+    else:
+        c.set(8, 11, accent)
     return c
 
 
@@ -520,6 +565,12 @@ def draw_special_item(name):
         c.ellipse(8, 8, 6, 4, rgba((56, 64, 66)), o)
         c.ellipse(8, 8, 3, 2, rgba((190, 218, 210)), None)
         c.set(8, 8, rgba((12, 14, 16)))
+    elif name == "spiritual_cleansing_talisman":
+        silver = rgba((160, 175, 185))
+        glow = rgba((85, 230, 240))
+        c.ellipse(8, 8, 6, 6, silver, o)
+        c.ellipse(8, 8, 4, 4, glow, None)
+        c.set(8, 8, rgba((255, 255, 255)))
     elif name == "lerasium_core":
         c.ellipse(8, 8, 5, 5, rgba((236, 218, 128)), o)
         c.rect(7, 3, 8, 13, rgba((255, 255, 232)))
@@ -660,6 +711,50 @@ def draw_machine_face(block, face):
 
 
 def draw_special_block(name):
+    if "trellium_ore" in name:
+        c = Canvas()
+        a = rgba((114, 50, 50))
+        b = rgba((87, 36, 36))
+        hi = rgba((138, 64, 64))
+        for y in range(16):
+            for x in range(16):
+                c.set(x, y, a)
+        dark_runs = [
+            (0, 2, 3), (4, 1, 4), (9, 3, 5), (1, 8, 3), (7, 6, 4), (11, 10, 5), (3, 13, 4),
+        ]
+        for x, y, length in dark_runs:
+            c.line(x, y, min(15, x + length), y, b)
+        for x, y in [(3, 3), (6, 4), (12, 5), (4, 9), (9, 11), (2, 12)]:
+            c.set(x, y, hi)
+        t_base = rgba((150, 45, 90))
+        t_shadow = rgba((90, 25, 55))
+        t_high = rgba((220, 100, 160))
+        for pts in [[(3, 4), (5, 3), (7, 5), (5, 7)], [(10, 4), (12, 6), (11, 9), (9, 7)], [(5, 11), (8, 10), (10, 12), (7, 14)]]:
+            c.polygon(pts, t_base, t_shadow)
+        c.set(5, 4, t_high)
+        c.set(11, 5, t_high)
+        return c
+    if "well_of_ascension" in name or "well_pulse" in name:
+        c = base_stone(True)
+        for x, y in [(4, 4), (11, 4), (4, 11), (11, 11), (7, 7)]:
+            c.rect(x - 1, y - 1, x + 1, y + 1, rgba((85, 230, 240)) if "pulse" in name else rgba((130, 180, 230)))
+        return c
+    if "sealed_well" in name:
+        c = base_stone(True)
+        c.rect(2, 2, 13, 13, rgba((70, 75, 80)))
+        c.rect(4, 4, 11, 11, rgba((48, 52, 56)))
+        c.line(2, 8, 13, 8, rgba((150, 160, 170)))
+        c.line(8, 2, 8, 13, rgba((150, 160, 170)))
+        return c
+    if "floor" in name:
+        c = base_stone(False)
+        for x in [0, 4, 8, 12]:
+            c.line(x, 0, x, 15, rgba((50, 48, 44)))
+        for y in [0, 4, 8, 12]:
+            c.line(0, y, 15, y, rgba((50, 48, 44)))
+        for x, y in [(2, 2), (6, 6), (10, 10), (14, 14)]:
+            c.set(x, y, rgba((130, 120, 100)))
+        return c
     if name in {"ash_deposit", "ash_layer"}:
         c = Canvas()
         for y in range(16):
@@ -884,8 +979,6 @@ def write_json(rel, data):
 def clear_generated_assets():
     for folder in ["textures", "models", "blockstates", "particles"]:
         path = ASSETS / folder
-        if path.exists():
-            shutil.rmtree(path)
         path.mkdir(parents=True, exist_ok=True)
 
 
@@ -936,7 +1029,13 @@ def metrics_for(path: Path, base: Path) -> QualityMetrics:
 
 
 def collect_metrics() -> list[QualityMetrics]:
-    return [metrics_for(path, TEXTURES) for path in sorted(TEXTURES.rglob("*.png"))]
+    res = []
+    for path in sorted(TEXTURES.rglob("*.png")):
+        try:
+            res.append(metrics_for(path, TEXTURES))
+        except Exception:
+            pass
+    return res
 
 
 def write_audit(before: list[QualityMetrics], after: list[QualityMetrics] | None = None):
@@ -1151,16 +1250,19 @@ def generate_assets():
             ("blend", draw_powder),
         ]:
             name = f"raw_{metal}_ore" if suffix == "raw_ore" else f"{metal}_{suffix}"
-            drawer(metal).save(f"item/{name}.png")
+            if not (TEXTURES / f"item/{name}.png").exists():
+                drawer(metal).save(f"item/{name}.png")
             item_models[name] = item_model(name)
             manifest.append(("item", f"textures/item/{name}.png", name, "yes", "n/a"))
         name = f"{metal}_vial"
-        draw_vial(metal).save(f"item/{name}.png")
+        if not (TEXTURES / f"item/{name}.png").exists():
+            draw_vial(metal).save(f"item/{name}.png")
         item_models[name] = item_model(name)
         manifest.append(("item", f"textures/item/{name}.png", name, "yes", "n/a"))
         for prefix, charged, decaying in [("", False, False), ("charged_", True, False), ("decaying_", True, True)]:
             name = f"{prefix}{metal}_spike"
-            draw_spike(metal, charged, decaying).save(f"item/{name}.png")
+            if not (TEXTURES / f"item/{name}.png").exists():
+                draw_spike(metal, charged, decaying).save(f"item/{name}.png")
             item_models[name] = item_model(name, handheld=True)
             manifest.append(("item", f"textures/item/{name}.png", name, "yes", "n/a"))
         if metal in {"atium", "lerasium"}:
@@ -1171,9 +1273,9 @@ def generate_assets():
 
     for metal in FERUCHEMICAL:
         for unkeyed in [False, True]:
-            for suffix in ["mind", "metalmind"]:
+            for suffix, drawer in [("ring", draw_metalmind_ring), ("bracer", draw_metalmind_bracer), ("necklace", draw_metalmind_necklace)]:
                 name = f"unkeyed_{metal}_{suffix}" if unkeyed else f"{metal}_{suffix}"
-                draw_metalmind(metal, unkeyed).save(f"item/{name}.png")
+                drawer(metal, unkeyed).save(f"item/{name}.png")
                 item_models[name] = item_model(name)
                 manifest.append(("item", f"textures/item/{name}.png", name, "yes", "n/a"))
 
@@ -1187,7 +1289,7 @@ def generate_assets():
         "allomancer_testing_kit", "feruchemist_testing_kit", "metal_arts_guidebook", "coin_pouch",
         "coinshot_coin", "metallic_coin", "anchor_marker", "bronze_detector", "coppercloud_charm",
         "time_bubble_focus", "atium_shadow_lens", "lerasium_core", "spike_removal_tool",
-        "spike_press_component", "guide", "inquisitor_axe",
+        "spike_press_component", "guide", "inquisitor_axe", "spiritual_cleansing_talisman",
     ]:
         draw_special_item(name).save(f"item/{name}.png")
         item_models[name] = item_model(name, handheld=name in {"spike_removal_tool", "anchor_marker", "inquisitor_axe"})
@@ -1231,6 +1333,7 @@ def generate_assets():
         "deepslate_chromium_ore", "cadmium_ore", "deepslate_cadmium_ore", "ash_deposit",
         "nickel_ore", "deepslate_nickel_ore", "silver_ore", "deepslate_silver_ore",
         "lead_ore", "deepslate_lead_ore",
+        "well_of_ascension_block", "well_pulse_core", "sealed_well_door", "ancient_metal_floor", "nether_trellium_ore",
     ]
     future_blocks = [
         "atium_ore", "deepslate_atium_ore", "atium_geode_block", "atium_crystal_cluster",
@@ -1245,13 +1348,15 @@ def generate_assets():
     for block in registered_blocks + future_blocks:
         if not (TEXTURES / f"block/{block}.png").exists():
             draw_special_block(block).save(f"block/{block}.png")
+        if block == "hemalurgic_altar":
+            continue
         if block not in block_models:
             tex = "atium_crystal_cluster" if block == "atium_geode_cluster" else "metal_cache_chest" if block == "metal_cache" else block
             block_models[block] = {"parent": "minecraft:block/cube_all", "textures": {"all": f"{MODID}:block/{tex}"}}
         blockstates[block] = {"variants": {"": {"model": f"{MODID}:block/{block}"}}}
 
-    for metal in METAL_IDS:
-        draw_icon(metal).save(f"gui/icon_{metal}.png")
+    # for metal in METAL_IDS:
+    #     draw_icon(metal).save(f"gui/icon_{metal}.png")
     for hud in [
         "metal_reserve_bar", "metal_reserve_fill", "metalmind_bar", "metalmind_fill", "burning_icon_frame",
         "flare_indicator", "bronze_pulse_arrow", "atium_warning", "coppercloud_status", "corruption_meter",

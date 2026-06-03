@@ -39,6 +39,7 @@ public class SavantismManager {
 
                 // Update last burned timestamp
                 lastBurnedTag.putInt(metal.id(), player.tickCount);
+                data.setSavantLastBurned(metal, player.level().getGameTime());
                 changedTag = true;
             } else {
                 // 2. Passive Decay when not burning

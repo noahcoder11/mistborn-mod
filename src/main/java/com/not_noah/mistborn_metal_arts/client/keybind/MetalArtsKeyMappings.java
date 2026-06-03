@@ -17,6 +17,7 @@ public final class MetalArtsKeyMappings {
     public static final KeyMapping TIME_BUBBLE = key("time_bubble", GLFW.GLFW_KEY_G);       // Drop temporal bubble
     public static final KeyMapping TOGGLE_FERUCHEMY = key("toggle_feruchemy", GLFW.GLFW_KEY_K); // Store/Tap Feruchemy
     public static final KeyMapping ALUMINUM_PURGE = key("aluminum_purge", GLFW.GLFW_KEY_P); // Safe, non-fat-finger purge
+    public static final KeyMapping OPEN_SOUL_STATUS = key("open_soul_status", GLFW.GLFW_KEY_H); // Spiritual diagnostic screen
 
 
     private MetalArtsKeyMappings() {

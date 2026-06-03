@@ -306,7 +306,7 @@ public final class ServerConfig {
         return switch (metal) {
             case ATIUM -> 100D;
             case DURALUMIN, ALUMINUM -> 80D;
-            case PEWTER, STEEL, IRON -> 160D;
+            case PEWTER, STEEL, IRON, BENDALLOY, CADMIUM -> 160D;
             default -> 120D;
         };
     }
@@ -317,7 +317,7 @@ public final class ServerConfig {
             case PEWTER -> 0.08D;
             case STEEL, IRON -> 0.055D;
             case TIN, COPPER, BRONZE -> 0.04D;
-            case BENDALLOY, CADMIUM -> 0.18D;
+            case BENDALLOY, CADMIUM -> 0.08D;
             case ALUMINUM -> 0D;
             case DURALUMIN -> 0.2D;
             default -> 0.06D;

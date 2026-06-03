@@ -229,7 +229,23 @@ public final class MetalForceHelper {
 
     public static boolean isMetallicBlock(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
-        return state.is(ModTags.Blocks.METALLIC_BLOCKS) || state.is(ModTags.Blocks.PUSH_PULL_ANCHORS);
+        if (state.is(ModTags.Blocks.METALLIC_BLOCKS) || state.is(ModTags.Blocks.PUSH_PULL_ANCHORS)) {
+            return true;
+        }
+        
+        var key = state.getBlock().builtInRegistryHolder().key();
+        if (key != null) {
+            String path = key.location().getPath().toLowerCase();
+            if (path.contains("iron") || path.contains("gold") || path.contains("copper") || path.contains("steel") ||
+                path.contains("tin") || path.contains("pewter") || path.contains("brass") || path.contains("zinc") ||
+                path.contains("bronze") || path.contains("lead") || path.contains("silver") || path.contains("electrum") ||
+                path.contains("aluminum") || path.contains("duralumin") || path.contains("chromium") || path.contains("nicrosil") ||
+                path.contains("cadmium") || path.contains("bendalloy") || path.contains("atium") || path.contains("trellium") ||
+                path.contains("raysium") || path.contains("tanavastium") || path.contains("metal") || path.contains("alloy")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static boolean isMetallicEntity(Entity entity) {
@@ -319,7 +335,7 @@ public final class MetalForceHelper {
         return false;
     }
 
-    private static void pushEntity(Entity entity, Vec3 delta) {
+    public static void pushEntity(Entity entity, Vec3 delta) {
         double max = ServerConfig.VALUES.maxPushPullForce.get() * 1.5D;
         Vec3 clamped = clamp(delta, max);
         entity.setDeltaMovement(clamp(entity.getDeltaMovement().add(clamped), max));

@@ -69,7 +69,7 @@ public final class MetalArtsEvents {
 
         @SubscribeEvent
         public static void attachCapabilities(AttachCapabilitiesEvent<Entity> event) {
-            if (event.getObject() instanceof Player) {
+            if (event.getObject() instanceof Player || event.getObject() instanceof com.not_noah.mistborn_metal_arts.entity.MetalbornEnemy) {
                 event.addCapability(CAPABILITY_ID, new MetalArtsProvider());
             }
             if (event.getObject() instanceof net.minecraft.world.entity.LivingEntity) {
@@ -225,7 +225,18 @@ public final class MetalArtsEvents {
         @SubscribeEvent
         public static void onLivingTick(net.minecraftforge.event.entity.living.LivingEvent.LivingTickEvent event) {
             net.minecraft.world.entity.LivingEntity entity = event.getEntity();
-            if (entity.level().isClientSide || entity instanceof Player) {
+            if (entity.level().isClientSide) {
+                return;
+            }
+
+            if (entity instanceof com.not_noah.mistborn_metal_arts.entity.MetalbornEnemy mob && mob.isAlive()) {
+                mob.getCapability(MetalArtsCapabilities.METAL_ARTS).ifPresent(data -> {
+                    AllomancyManager.tick(mob, data);
+                    FeruchemyManager.tick(mob, data);
+                });
+            }
+
+            if (entity instanceof Player) {
                 return;
             }
 
@@ -288,6 +299,8 @@ public final class MetalArtsEvents {
                         oldData.stopFeruchemy(metal);
                     }
                     oldData.setRestrained(false, null, 0);
+                    oldData.setPewterDragTicks(0);
+                    oldData.setPewterBurnDuration(0);
                 }
 
                 newPlayer.getCapability(MetalArtsCapabilities.METAL_ARTS).ifPresent(newData -> {

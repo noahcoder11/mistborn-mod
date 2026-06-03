@@ -18,6 +18,13 @@ public class SoulStabilityManager {
     private static final Random RANDOM = new Random();
 
     public static void tick(ServerPlayer player, MetalArtsData data) {
+        // Recalculate stability dynamically based on actual player state (including Curios slots!)
+        float oldStability = data.soulStability();
+        recalculateStability(player, data);
+        if (Math.abs(data.soulStability() - oldStability) > 0.01F) {
+            com.not_noah.mistborn_metal_arts.network.MetalArtsNetwork.sync(player);
+        }
+
         float stability = data.soulStability();
 
         // 1. Stage Transition Warnings
@@ -114,7 +121,8 @@ public class SoulStabilityManager {
             }
         }
 
-        float stability = baseMax
+        float maxStability = baseMax - data.spiritualScarring();
+        float stability = maxStability
                 - (spikeCount * lossPerSpike)
                 - (duplicateCount * lossPerDuplicate)
                 - (godMetalSpikeCount * 8.0F)
@@ -134,7 +142,105 @@ public class SoulStabilityManager {
             stability += 15.0F * tanavastiumTapLevel;
         }
 
-        data.setSoulStability(Math.max(0.0F, Math.min(baseMax, stability)));
+        data.setSoulStability(Math.max(0.0F, Math.min(maxStability, stability)));
+    }
+
+    public static void recalculateStability(net.minecraft.world.entity.player.Player player, MetalArtsData data) {
+        float baseMax = ServerConfig.VALUES.soulStabilityBaseMax.get().floatValue();
+        float lossPerSpike = ServerConfig.VALUES.stabilityLossPerSpike.get().floatValue();
+        float lossPerDuplicate = ServerConfig.VALUES.stabilityLossPerDuplicate.get().floatValue();
+        float linchpinBonus = ServerConfig.VALUES.linchpinStabilityBonus.get().floatValue();
+
+        java.util.List<SpikeInfo> allSpikes = new java.util.ArrayList<>();
+        
+        // 1. Installed Spikes
+        for (MetalArtsData.InstalledSpike spike : data.installedSpikes()) {
+            allSpikes.add(new SpikeInfo(spike.spikeMetal(), spike.powerType(), spike.powerMetal()));
+        }
+
+        // 2. Curio Equipped Spikes
+        top.theillusivec4.curios.api.CuriosApi.getCuriosInventory(player).ifPresent(handler -> {
+            String[] preferredSlots = {
+                "physical_quadrant", "mental_quadrant", "spiritual_quadrant", "temporal_quadrant",
+                "head", "necklace", "back", "body", "belt", "ring", "hands", "bracelet", "charm"
+            };
+            for (String slotType : preferredSlots) {
+                java.util.Optional<top.theillusivec4.curios.api.type.inventory.ICurioStacksHandler> stacksHandler = handler.getStacksHandler(slotType);
+                if (stacksHandler.isEmpty()) continue;
+                net.minecraftforge.items.IItemHandlerModifiable stacks = stacksHandler.get().getStacks();
+                for (int j = 0; j < stacks.getSlots(); j++) {
+                    ItemStack stack = stacks.getStackInSlot(j);
+                    if (stack.getItem() instanceof com.not_noah.mistborn_metal_arts.item.HemalurgicSpikeItem spikeItem && spikeItem.charged()) {
+                        CompoundTag tag = stack.getOrCreateTag();
+                        String powerType = tag.getString("PowerType");
+                        if (powerType.isBlank()) {
+                            powerType = spikeItem.metal().isFeruchemical() ? "feruchemy" : "allomancy";
+                        }
+                        com.not_noah.mistborn_metal_arts.api.Metal powerMetal = com.not_noah.mistborn_metal_arts.api.Metal.byName(tag.getString("PowerMetal")).orElse(spikeItem.metal());
+                        allSpikes.add(new SpikeInfo(spikeItem.metal(), powerType, powerMetal));
+                    }
+                }
+            }
+        });
+
+        int spikeCount = allSpikes.size();
+        
+        // Count duplicate powers across ALL spikes (installed + equipped)
+        java.util.Map<String, Integer> counts = new java.util.HashMap<>();
+        int tanavastiumSpikeCount = 0;
+        int godMetalSpikeCount = 0;
+        
+        for (SpikeInfo spike : allSpikes) {
+            String key = spike.powerType + ":" + spike.powerMetal.id();
+            counts.put(key, counts.getOrDefault(key, 0) + 1);
+            
+            if (spike.metal == com.not_noah.mistborn_metal_arts.api.Metal.TANAVASTIUM) {
+                tanavastiumSpikeCount++;
+            } else if (spike.metal.isGodMetal()) {
+                godMetalSpikeCount++;
+            }
+        }
+        
+        int duplicateCount = 0;
+        for (int count : counts.values()) {
+            if (count > 1) {
+                duplicateCount += (count - 1);
+            }
+        }
+
+        float maxStability = baseMax - data.spiritualScarring();
+        float stability = maxStability
+                - (spikeCount * lossPerSpike)
+                - (duplicateCount * lossPerDuplicate)
+                - (godMetalSpikeCount * 8.0F)
+                - (data.identityContamination() * 0.3F)
+                - (data.spiritualBloat() * 0.2F)
+                + (data.hasLinchpinSpike() ? linchpinBonus : 0.0F)
+                + (tanavastiumSpikeCount * 25.0F);
+
+        // Active Tanavastium burn bonus
+        if (data.isBurning(com.not_noah.mistborn_metal_arts.api.Metal.TANAVASTIUM)) {
+            stability += 40.0F;
+        }
+
+        // Active Tanavastium tapping bonus
+        int tanavastiumTapLevel = data.feruchemyMode(com.not_noah.mistborn_metal_arts.api.Metal.TANAVASTIUM);
+        if (tanavastiumTapLevel > 0) {
+            stability += 15.0F * tanavastiumTapLevel;
+        }
+
+        data.setSoulStability(Math.max(0.0F, Math.min(maxStability, stability)));
+    }
+
+    private static class SpikeInfo {
+        final com.not_noah.mistborn_metal_arts.api.Metal metal;
+        final String powerType;
+        final com.not_noah.mistborn_metal_arts.api.Metal powerMetal;
+        SpikeInfo(com.not_noah.mistborn_metal_arts.api.Metal metal, String powerType, com.not_noah.mistborn_metal_arts.api.Metal powerMetal) {
+            this.metal = metal;
+            this.powerType = powerType;
+            this.powerMetal = powerMetal;
+        }
     }
 
     public static void onLinchpinRemoved(ServerPlayer player, MetalArtsData data) {
@@ -215,8 +321,7 @@ public class SoulStabilityManager {
     }
 
     private static void playWhisperSound(ServerPlayer player) {
-        player.level().playSound(null, player.blockPosition(),
-                SoundEvents.SOUL_ESCAPE, SoundSource.AMBIENT, 0.3F, 0.5F + RANDOM.nextFloat() * 0.5F);
+        com.not_noah.mistborn_metal_arts.hemalurgy.IdentityContaminationManager.playWhisperSound(player);
     }
 
     private static int countDuplicatePowers(MetalArtsData data) {

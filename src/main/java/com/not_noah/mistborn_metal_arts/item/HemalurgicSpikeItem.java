@@ -144,17 +144,34 @@ public class HemalurgicSpikeItem extends Item {
                 }
             }
 
+            // Curio slot recommendation based on spike metal
+            String recommendedSlot;
+            if (metal == Metal.IRON || metal == Metal.STEEL || metal == Metal.TIN || metal == Metal.PEWTER) {
+                recommendedSlot = "§9• Recommended Slot: Physical Quadrant";
+            } else if (metal == Metal.ZINC || metal == Metal.BRASS || metal == Metal.COPPER || metal == Metal.BRONZE) {
+                recommendedSlot = "§6• Recommended Slot: Mental Quadrant";
+            } else if (metal == Metal.GOLD || metal == Metal.ELECTRUM || metal == Metal.CHROMIUM || metal == Metal.NICROSIL) {
+                recommendedSlot = "§d• Recommended Slot: Spiritual Quadrant";
+            } else {
+                recommendedSlot = "§a• Recommended Slot: Temporal Quadrant";
+            }
+            tooltip.add(Component.literal(recommendedSlot));
+
             int percentage = Math.round(strength * 100);
             tooltip.add(Component.translatable("tooltip.mistborn_metal_arts.spike_charge", percentage).withStyle(ChatFormatting.GOLD));
 
             // Render decay context info
             String state = tag.getString("StoredState");
-            if ("blood".equals(state)) {
-                tooltip.add(Component.translatable("tooltip.mistborn_metal_arts.preservation_blood").withStyle(net.minecraft.ChatFormatting.DARK_RED));
+            if ("equipped".equals(state)) {
+                tooltip.add(Component.literal("§a• Spiritweb Anchored (Decay Paused)"));
             } else if ("aluminum".equals(state)) {
-                tooltip.add(Component.translatable("tooltip.mistborn_metal_arts.preservation_aluminum").withStyle(net.minecraft.ChatFormatting.GREEN));
+                tooltip.add(Component.literal("§e• Sealed in Aluminum Casing (Decay Paused)"));
+            } else if ("blood".equals(state)) {
+                tooltip.add(Component.literal("§c• Preserved in Blood Vial (5x slower decay)"));
+            } else if ("tank".equals(state)) {
+                tooltip.add(Component.literal("§b• Preserved in Altar Tank (10x slower decay)"));
             } else {
-                tooltip.add(Component.translatable("tooltip.mistborn_metal_arts.preservation_decaying").withStyle(net.minecraft.ChatFormatting.GRAY));
+                tooltip.add(Component.literal("§7• Decaying in Air (No Preservation)"));
             }
         } else {
             tooltip.add(Component.translatable("tooltip.mistborn_metal_arts.blank_spike_warning").withStyle(ChatFormatting.DARK_GRAY));

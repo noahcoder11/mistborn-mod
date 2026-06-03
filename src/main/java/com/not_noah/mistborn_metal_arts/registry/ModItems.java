@@ -36,8 +36,12 @@ public final class ModItems {
     public static final EnumMap<Metal, RegistryObject<Item>> METAL_BLENDS = new EnumMap<>(Metal.class);
     public static final EnumMap<Metal, RegistryObject<Item>> RAW_ORES = new EnumMap<>(Metal.class);
     public static final EnumMap<Metal, RegistryObject<Item>> METAL_VIALS = new EnumMap<>(Metal.class);
-    public static final EnumMap<Metal, RegistryObject<Item>> METALMINDS = new EnumMap<>(Metal.class);
-    public static final EnumMap<Metal, RegistryObject<Item>> UNKEYED_METALMINDS = new EnumMap<>(Metal.class);
+    public static final EnumMap<Metal, RegistryObject<Item>> METALMIND_RINGS = new EnumMap<>(Metal.class);
+    public static final EnumMap<Metal, RegistryObject<Item>> UNKEYED_METALMIND_RINGS = new EnumMap<>(Metal.class);
+    public static final EnumMap<Metal, RegistryObject<Item>> METALMIND_BRACERS = new EnumMap<>(Metal.class);
+    public static final EnumMap<Metal, RegistryObject<Item>> UNKEYED_METALMIND_BRACERS = new EnumMap<>(Metal.class);
+    public static final EnumMap<Metal, RegistryObject<Item>> METALMIND_NECKLACES = new EnumMap<>(Metal.class);
+    public static final EnumMap<Metal, RegistryObject<Item>> UNKEYED_METALMIND_NECKLACES = new EnumMap<>(Metal.class);
     public static final EnumMap<Metal, RegistryObject<Item>> SPIKE_BLANKS = new EnumMap<>(Metal.class);
     public static final EnumMap<Metal, RegistryObject<Item>> CHARGED_SPIKES = new EnumMap<>(Metal.class);
     public static final EnumMap<MetalbornRole, RegistryObject<Item>> METALBORN_SPAWN_EGGS = new EnumMap<>(MetalbornRole.class);
@@ -108,8 +112,14 @@ public final class ModItems {
                 METAL_VIALS.put(metal, ITEMS.register(metal.id() + "_vial", () -> new MetalVialItem(metal, false, new Item.Properties().stacksTo(16))));
             }
             if (metal.isFeruchemical()) {
-                METALMINDS.put(metal, ITEMS.register(metal.id() + "_metalmind", () -> new MetalmindItem(metal, false, new Item.Properties().stacksTo(1))));
-                UNKEYED_METALMINDS.put(metal, ITEMS.register("unkeyed_" + metal.id() + "_metalmind", () -> new MetalmindItem(metal, true, new Item.Properties().stacksTo(1))));
+                METALMIND_RINGS.put(metal, ITEMS.register(metal.id() + "_ring", () -> new MetalmindItem(metal, MetalmindItem.Type.RING, false, new Item.Properties().stacksTo(1))));
+                UNKEYED_METALMIND_RINGS.put(metal, ITEMS.register("unkeyed_" + metal.id() + "_ring", () -> new MetalmindItem(metal, MetalmindItem.Type.RING, true, new Item.Properties().stacksTo(1))));
+                
+                METALMIND_BRACERS.put(metal, ITEMS.register(metal.id() + "_bracer", () -> new MetalmindItem(metal, MetalmindItem.Type.BRACER, false, new Item.Properties().stacksTo(1))));
+                UNKEYED_METALMIND_BRACERS.put(metal, ITEMS.register("unkeyed_" + metal.id() + "_bracer", () -> new MetalmindItem(metal, MetalmindItem.Type.BRACER, true, new Item.Properties().stacksTo(1))));
+                
+                METALMIND_NECKLACES.put(metal, ITEMS.register(metal.id() + "_necklace", () -> new MetalmindItem(metal, MetalmindItem.Type.NECKLACE, false, new Item.Properties().stacksTo(1))));
+                UNKEYED_METALMIND_NECKLACES.put(metal, ITEMS.register("unkeyed_" + metal.id() + "_necklace", () -> new MetalmindItem(metal, MetalmindItem.Type.NECKLACE, true, new Item.Properties().stacksTo(1))));
             }
             SPIKE_BLANKS.put(metal, ITEMS.register(metal.id() + "_spike", () -> new HemalurgicSpikeItem(metal, false, new Item.Properties().stacksTo(16))));
             CHARGED_SPIKES.put(metal, ITEMS.register("charged_" + metal.id() + "_spike", () -> new HemalurgicSpikeItem(metal, true, new Item.Properties().stacksTo(1).fireResistant())));

@@ -19,6 +19,22 @@ public class IdentityContaminationManager {
 
     private static final Random RANDOM = new Random();
 
+    private static class ActiveSequence {
+        int ticksRemaining;
+        final double baseAngle;
+        double currentDist;
+        final net.minecraft.sounds.SoundEvent stepSound;
+        
+        ActiveSequence(double baseAngle, double startDist, net.minecraft.sounds.SoundEvent stepSound) {
+            this.ticksRemaining = 0;
+            this.baseAngle = baseAngle;
+            this.currentDist = startDist;
+            this.stepSound = stepSound;
+        }
+    }
+    
+    private static final java.util.Map<java.util.UUID, ActiveSequence> ACTIVE_SEQUENCES = new java.util.HashMap<>();
+
     private static final String[] DONOR_MEMORIES = {
         "You smell iron and ash. A forge you've never visited.",
         "A child's laughter echoes. Not your child.",
@@ -35,6 +51,10 @@ public class IdentityContaminationManager {
     };
 
     public static void tick(ServerPlayer player, MetalArtsData data) {
+        tickActiveSequence(player);
+        
+        float oldContamination = data.identityContamination();
+
         // 1. Passive Decay
         boolean isResting = player.getDeltaMovement().horizontalDistanceSqr() < 0.001
                 && (player.tickCount - player.getLastHurtByMobTimestamp() > 100)
@@ -42,12 +62,21 @@ public class IdentityContaminationManager {
 
         if (isResting) {
             double decay = ServerConfig.VALUES.contaminationDecayRate.get();
-            // Aluminum Feruchemy: storing Identity accelerates decay x3 (handled if storing identity, but let's check basic for now)
-            // If storing identity (feruchemy), we can scale it.
-            // Let's check if player is storing Aluminum (we will check if tapping or storing)
-            // For now, let's decay contamination passively:
-            float finalDecay = (float) decay;
-            data.reduceIdentityContamination(finalDecay);
+            int installedCount = data.installedSpikes().size();
+            int equippedCount = com.not_noah.mistborn_metal_arts.curios.CuriosIntegration.getEquippedSpikeCount(player);
+            int totalSpikes = installedCount + equippedCount;
+            
+            float floor = totalSpikes * (float) ServerConfig.VALUES.contaminationPerSpike.get().doubleValue();
+            
+            if (data.identityContamination() > floor) {
+                float finalDecay = (float) decay;
+                float newContamination = Math.max(floor, data.identityContamination() - finalDecay);
+                data.setIdentityContamination(newContamination);
+            }
+        }
+
+        if (Math.abs(data.identityContamination() - oldContamination) > 0.01F) {
+            com.not_noah.mistborn_metal_arts.network.MetalArtsNetwork.sync(player);
         }
 
         float contamination = data.identityContamination();
@@ -62,7 +91,14 @@ public class IdentityContaminationManager {
             else if (stage >= 3) whisperInterval = 160; // Stage 3+: 8s
 
             if (player.tickCount % whisperInterval == 0 && RANDOM.nextFloat() < 0.8F) {
-                playWhisperSound(player);
+                // 15% chance to trigger a full auditory Dread Sequence instead of a one-off whisper!
+                if (RANDOM.nextFloat() < 0.15F && !ACTIVE_SEQUENCES.containsKey(player.getUUID())) {
+                    double angle = RANDOM.nextDouble() * 2 * Math.PI;
+                    net.minecraft.sounds.SoundEvent stepSound = GHOSTLY_STEP_SOUNDS[RANDOM.nextInt(GHOSTLY_STEP_SOUNDS.length)];
+                    ACTIVE_SEQUENCES.put(player.getUUID(), new ActiveSequence(angle, 12.0D, stepSound));
+                } else {
+                    playWhisperSound(player);
+                }
             }
 
             // Chat Messages (Donor memories)
@@ -108,9 +144,127 @@ public class IdentityContaminationManager {
         }
     }
 
-    public static void playWhisperSound(ServerPlayer player) {
-        player.level().playSound(null, player.blockPosition(),
-                SoundEvents.SOUL_ESCAPE, SoundSource.AMBIENT, 0.25F, 0.4F + RANDOM.nextFloat() * 0.4F);
+    private static final net.minecraft.sounds.SoundEvent[] GHOSTLY_STEP_SOUNDS = {
+        SoundEvents.STONE_STEP, SoundEvents.WOOD_STEP, SoundEvents.GRASS_STEP, SoundEvents.GRAVEL_STEP
+    };
+
+    private static final net.minecraft.sounds.SoundEvent[] GHOSTLY_ACTION_SOUNDS = {
+        SoundEvents.STONE_BREAK, SoundEvents.WOOD_BREAK, SoundEvents.ITEM_PICKUP,
+        SoundEvents.CHEST_OPEN, SoundEvents.CHEST_CLOSE, SoundEvents.ARROW_SHOOT
+    };
+
+    public static void playWhisperSound(net.minecraft.world.entity.player.Player player) {
+        Random rand = new Random();
+        double angle = rand.nextDouble() * 2 * Math.PI;
+        double dist = 4.0D + rand.nextDouble() * 5.0D; // 4 to 9 blocks away
+        double x = player.getX() + Math.cos(angle) * dist;
+        double y = player.getY() + (rand.nextDouble() - 0.5) * 1.5D;
+        double z = player.getZ() + Math.sin(angle) * dist;
+
+        int type = rand.nextInt(4); // 0 = standard soul escape, 1 = footstep sequence, 2 = mining, 3 = actions
+        if (type == 0) {
+            // Eerie soul escape - slightly louder and more distinct!
+            player.level().playSound(null, x, y, z,
+                    SoundEvents.SOUL_ESCAPE, SoundSource.PLAYERS, 0.5F, 0.35F + rand.nextFloat() * 0.4F);
+        } else if (type == 1) {
+            // Ghostly footsteps sequence: play two soft steps close together in space
+            net.minecraft.sounds.SoundEvent stepSound = GHOSTLY_STEP_SOUNDS[rand.nextInt(GHOSTLY_STEP_SOUNDS.length)];
+            player.level().playSound(null, x, y, z, stepSound, SoundSource.PLAYERS, 0.45F, 0.65F + rand.nextFloat() * 0.25F);
+            
+            double x2 = x + (rand.nextDouble() - 0.5) * 1.2;
+            double z2 = z + (rand.nextDouble() - 0.5) * 1.2;
+            player.level().playSound(null, x2, y, z2, stepSound, SoundSource.PLAYERS, 0.4F, 0.55F + rand.nextFloat() * 0.25F);
+        } else if (type == 2) {
+            // Ghostly mining (pickaxe impact or block breaking)
+            net.minecraft.sounds.SoundEvent mineSound = rand.nextBoolean() ? SoundEvents.STONE_HIT : SoundEvents.STONE_BREAK;
+            player.level().playSound(null, x, y, z, mineSound, SoundSource.PLAYERS, 0.5F, 0.45F + rand.nextFloat() * 0.35F);
+        } else {
+            // Ghostly interaction
+            net.minecraft.sounds.SoundEvent actionSound = GHOSTLY_ACTION_SOUNDS[rand.nextInt(GHOSTLY_ACTION_SOUNDS.length)];
+            float pitch = actionSound == SoundEvents.ITEM_PICKUP ? 0.45F + rand.nextFloat() * 0.4F : 0.65F + rand.nextFloat() * 0.3F;
+            player.level().playSound(null, x, y, z, actionSound, SoundSource.PLAYERS, 0.45F, pitch);
+        }
+    }
+
+    public static void tickActiveSequence(ServerPlayer player) {
+        java.util.UUID uuid = player.getUUID();
+        if (!ACTIVE_SEQUENCES.containsKey(uuid)) return;
+        
+        ActiveSequence seq = ACTIVE_SEQUENCES.get(uuid);
+        seq.ticksRemaining++;
+        
+        int tick = seq.ticksRemaining;
+        net.minecraft.util.RandomSource rand = player.getRandom();
+        
+        // FOOTSTEPS APPROACHING: ticks 10, 20, 30, 40
+        if (tick == 10 || tick == 20 || tick == 30 || tick == 40) {
+            double dist = 12.0D - (tick / 10.0D) * 2.2D; // walk closer
+            double x = player.getX() + Math.cos(seq.baseAngle) * dist;
+            double y = player.getY() + (rand.nextDouble() - 0.5) * 0.5D;
+            double z = player.getZ() + Math.sin(seq.baseAngle) * dist;
+            
+            float volume = 0.25F + (tick / 40.0F) * 0.3F;
+            float pitch = 0.65F + rand.nextFloat() * 0.25F;
+            player.level().playSound(null, x, y, z, seq.stepSound, SoundSource.PLAYERS, volume, pitch);
+        }
+        
+        // GHOSTLY MINING: tick 55 and 65
+        else if (tick == 55 || tick == 65) {
+            double dist = 3.0D;
+            double x = player.getX() + Math.cos(seq.baseAngle) * dist;
+            double y = player.getY() + (rand.nextDouble() - 0.5) * 0.5D;
+            double z = player.getZ() + Math.sin(seq.baseAngle) * dist;
+            
+            net.minecraft.sounds.SoundEvent mineSound = tick == 55 ? SoundEvents.STONE_HIT : SoundEvents.STONE_BREAK;
+            player.level().playSound(null, x, y, z, mineSound, SoundSource.PLAYERS, 0.55F, 0.45F + rand.nextFloat() * 0.3F);
+        }
+        
+        // CHEST OPEN: tick 80
+        else if (tick == 80) {
+            double dist = 3.0D;
+            double x = player.getX() + Math.cos(seq.baseAngle) * dist;
+            double y = player.getY();
+            double z = player.getZ() + Math.sin(seq.baseAngle) * dist;
+            
+            player.level().playSound(null, x, y, z, SoundEvents.CHEST_OPEN, SoundSource.PLAYERS, 0.45F, 0.75F + rand.nextFloat() * 0.2F);
+        }
+        
+        // ITEM PICKUP / RUSTLE: tick 95
+        else if (tick == 95) {
+            double dist = 2.5D;
+            double x = player.getX() + Math.cos(seq.baseAngle) * dist;
+            double y = player.getY();
+            double z = player.getZ() + Math.sin(seq.baseAngle) * dist;
+            
+            player.level().playSound(null, x, y, z, SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 0.45F, 0.55F + rand.nextFloat() * 0.3F);
+        }
+        
+        // CHEST CLOSE: tick 110
+        else if (tick == 110) {
+            double dist = 3.0D;
+            double x = player.getX() + Math.cos(seq.baseAngle) * dist;
+            double y = player.getY();
+            double z = player.getZ() + Math.sin(seq.baseAngle) * dist;
+            
+            player.level().playSound(null, x, y, z, SoundEvents.CHEST_CLOSE, SoundSource.PLAYERS, 0.45F, 0.75F + rand.nextFloat() * 0.2F);
+        }
+        
+        // FOOTSTEPS RETREATING: ticks 125, 135, 145
+        else if (tick == 125 || tick == 135 || tick == 145) {
+            double dist = 3.0D + ((tick - 120.0D) / 30.0D) * 7.0D; // walk away
+            double x = player.getX() + Math.cos(seq.baseAngle) * dist;
+            double y = player.getY() + (rand.nextDouble() - 0.5) * 0.5D;
+            double z = player.getZ() + Math.sin(seq.baseAngle) * dist;
+            
+            float volume = 0.45F - ((tick - 120.0F) / 30.0F) * 0.25F;
+            float pitch = 0.55F + rand.nextFloat() * 0.25F;
+            player.level().playSound(null, x, y, z, seq.stepSound, SoundSource.PLAYERS, volume, pitch);
+        }
+        
+        // EXPIRATION: tick 150
+        else if (tick >= 150) {
+            ACTIVE_SEQUENCES.remove(uuid);
+        }
     }
 
     public static void triggerDonorMemory(ServerPlayer player) {

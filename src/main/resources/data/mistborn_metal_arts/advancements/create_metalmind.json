@@ -1,7 +1,7 @@
 {
   "display": {
     "icon": {
-      "item": "mistborn_metal_arts:iron_metalmind"
+      "item": "mistborn_metal_arts:iron_ring"
     },
     "title": {
       "translate": "advancements.mistborn_metal_arts.create_metalmind.title"

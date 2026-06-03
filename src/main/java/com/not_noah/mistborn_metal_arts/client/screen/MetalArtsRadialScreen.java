@@ -75,7 +75,7 @@ public class MetalArtsRadialScreen extends Screen {
         MetalArtsData data = ClientMetalArtsData.data();
         boolean hasAllo = false;
         for (Metal m : Metal.cachedValues()) {
-            if (data.allomanticPowersRaw().contains(m)) {
+            if (data.allomanticPowers().contains(m)) {
                 hasAllo = true;
                 break;
             }
@@ -138,7 +138,7 @@ public class MetalArtsRadialScreen extends Screen {
 
                 // --- 1. Inner Ring (Internal Metals) ---
                 Metal innerMetal = ALLOMANCY_INNER[i];
-                if (data.allomanticPowersRaw().contains(innerMetal)) {
+                if (data.allomanticPowers().contains(innerMetal)) {
                     float innerAnim = metalAnimations.getOrDefault(innerMetal, 0.0F);
                     float innerRin = 35.0F + innerAnim * 3.0F;
                     float innerRout = 75.0F + innerAnim * 5.0F;
@@ -173,7 +173,7 @@ public class MetalArtsRadialScreen extends Screen {
 
                 // --- 2. Outer Ring (External Metals) ---
                 Metal outerMetal = ALLOMANCY_OUTER[i];
-                if (data.allomanticPowersRaw().contains(outerMetal)) {
+                if (data.allomanticPowers().contains(outerMetal)) {
                     float outerAnim = metalAnimations.getOrDefault(outerMetal, 0.0F);
                     float outerRin = 75.0F + outerAnim * 4.0F;
                     float outerRout = 115.0F + outerAnim * 8.0F;
@@ -213,19 +213,19 @@ public class MetalArtsRadialScreen extends Screen {
 
             // --- 3. God Metals (Atium, Lerasium, Trellium, Raysium, Tanavastium) Medallions ---
             float godMetalY = Math.min(cy + 135.0F, height - 25.0F);
-            if (data.allomanticPowersRaw().contains(Metal.ATIUM)) {
+            if (data.allomanticPowers().contains(Metal.ATIUM)) {
                 renderGodMedallion(graphics, Metal.ATIUM, cx - 72.0F, godMetalY, data);
             }
-            if (data.allomanticPowersRaw().contains(Metal.LERASIUM)) {
+            if (data.allomanticPowers().contains(Metal.LERASIUM)) {
                 renderGodMedallion(graphics, Metal.LERASIUM, cx - 36.0F, godMetalY, data);
             }
-            if (data.allomanticPowersRaw().contains(Metal.TRELLIUM)) {
+            if (data.allomanticPowers().contains(Metal.TRELLIUM)) {
                 renderGodMedallion(graphics, Metal.TRELLIUM, cx, godMetalY, data);
             }
-            if (data.allomanticPowersRaw().contains(Metal.RAYSIUM)) {
+            if (data.allomanticPowers().contains(Metal.RAYSIUM)) {
                 renderGodMedallion(graphics, Metal.RAYSIUM, cx + 36.0F, godMetalY, data);
             }
-            if (data.allomanticPowersRaw().contains(Metal.TANAVASTIUM)) {
+            if (data.allomanticPowers().contains(Metal.TANAVASTIUM)) {
                 renderGodMedallion(graphics, Metal.TANAVASTIUM, cx + 72.0F, godMetalY, data);
             }
 
@@ -273,7 +273,7 @@ public class MetalArtsRadialScreen extends Screen {
                         // Storing/Tapping indicators badges
                         if (data.feruchemyMode(metal) != 0) {
                             int modeVal = data.feruchemyMode(metal);
-                            String badge = modeVal < 0 ? "S" : "x" + modeVal;
+                            String badge = modeVal < 0 ? "S" + (-modeVal) : "x" + modeVal;
                             int badgeColor = modeVal < 0 ? 0xFF85B5E6 : 0xFFFF9433;
                             graphics.pose().pushPose();
                             graphics.pose().translate(cellX + 5, cellY + 3, 10);
@@ -349,7 +349,7 @@ public class MetalArtsRadialScreen extends Screen {
         if (feruchemyTab) {
             borderColor = data.hasFeruchemicalPower(metal) ? (data.feruchemyMode(metal) != 0 ? 0xFFFFFFFF : 0xFF5D7B9C) : 0x223C4F66;
         } else {
-            borderColor = data.allomanticPowersRaw().contains(metal) ? (data.isBurning(metal) ? 0xFFFFFFFF : 0xFF5D7B9C) : 0x223C4F66;
+            borderColor = data.allomanticPowers().contains(metal) ? (data.isBurning(metal) ? 0xFFFFFFFF : 0xFF5D7B9C) : 0x223C4F66;
         }
         if (anim > 0) {
             borderColor = getMetalColor(metal) | 0xFF000000;
@@ -360,7 +360,7 @@ public class MetalArtsRadialScreen extends Screen {
     }
 
     private void drawMetalIcon(GuiGraphics graphics, Metal metal, float x, float y, MetalArtsData data, boolean feru) {
-        boolean hasPower = feru ? data.hasFeruchemicalPower(metal) : data.allomanticPowersRaw().contains(metal);
+        boolean hasPower = feru ? data.hasFeruchemicalPower(metal) : data.allomanticPowers().contains(metal);
         boolean active = feru ? (data.feruchemyMode(metal) != 0) : data.isBurning(metal);
 
         String prefix = feru ? "icon_feru_" : "icon_";
@@ -372,7 +372,7 @@ public class MetalArtsRadialScreen extends Screen {
     }
 
     private int getDynamicColor(Metal metal, MetalArtsData data, float anim, boolean feru) {
-        boolean hasPower = feru ? data.hasFeruchemicalPower(metal) : data.allomanticPowersRaw().contains(metal);
+        boolean hasPower = feru ? data.hasFeruchemicalPower(metal) : data.allomanticPowers().contains(metal);
         int baseCol = getMetalColor(metal);
 
         if (!hasPower) {
@@ -401,7 +401,7 @@ public class MetalArtsRadialScreen extends Screen {
         MetalArtsData data = ClientMetalArtsData.data();
         boolean hasAllo = false;
         for (Metal m : Metal.cachedValues()) {
-            if (data.allomanticPowersRaw().contains(m)) {
+            if (data.allomanticPowers().contains(m)) {
                 hasAllo = true;
                 break;
             }
@@ -450,7 +450,7 @@ public class MetalArtsRadialScreen extends Screen {
         graphics.pose().scale(1.0F/0.92F, 1.0F/0.92F, 1.0F/0.92F);
 
         // 2. Power Role Status
-        boolean hasPower = feruchemyTab ? data.hasFeruchemicalPower(metal) : data.allomanticPowersRaw().contains(metal);
+        boolean hasPower = feruchemyTab ? data.hasFeruchemicalPower(metal) : data.allomanticPowers().contains(metal);
         String roleText = "LOCKED";
         int roleColor = 0xFF5A616A;
 
@@ -471,15 +471,29 @@ public class MetalArtsRadialScreen extends Screen {
         int statusColor = 0xFF8A95A5;
         if (hasPower) {
             if (feruchemyTab) {
+                float sumOfCharge = 0F;
+                float summationOfCapacity = 0F;
+                net.minecraft.client.player.LocalPlayer player = net.minecraft.client.Minecraft.getInstance().player;
+                if (player != null) {
+                    java.util.List<com.not_noah.mistborn_metal_arts.feruchemy.FeruchemyManager.IMetalSource> sources = 
+                        com.not_noah.mistborn_metal_arts.feruchemy.FeruchemyManager.findMetalSources(player, data, metal);
+                    for (var source : sources) {
+                        sumOfCharge += source.getCharge();
+                        float baseCap = source.getCapacity();
+                        float scaledCap = baseCap * (1.0F + 0.15F * data.getLerasatiumAlloyBonus(metal));
+                        summationOfCapacity += scaledCap;
+                    }
+                }
+
                 int mode = data.feruchemyMode(metal);
                 if (mode < 0) {
-                    status = "Storing";
+                    status = "Storing [" + Math.round(sumOfCharge) + "/" + Math.round(summationOfCapacity) + "]";
                     statusColor = 0xFF6EA5E6;
                 } else if (mode > 0) {
-                    status = "Tapping x" + mode;
+                    status = "Tapping x" + mode + " [" + Math.round(sumOfCharge) + "/" + Math.round(summationOfCapacity) + "]";
                     statusColor = 0xFFFF8533;
                 } else {
-                    status = "Idle [Charge: " + Math.round(data.getMetalmindCharge(metal)) + "]";
+                    status = "Idle [Charge: " + Math.round(sumOfCharge) + "/" + Math.round(summationOfCapacity) + "]";
                 }
             } else {
                 if (data.isFlaring(metal)) {
@@ -494,13 +508,34 @@ public class MetalArtsRadialScreen extends Screen {
             }
         }
         graphics.drawCenteredString(font, status, 0, -14, statusColor);
+        
+        int extraY = 0;
+        if (hasPower) {
+            if (!feruchemyTab) {
+                float strength = data.getEffectiveStrength(metal);
+                graphics.drawCenteredString(font, "Spiritual Strength: " + Math.round(strength * 100.0F) + "%", 0, -2, 0xFF80DEEA);
+                extraY += 16;
+            }
+            if (!feruchemyTab) {
+                float savantProgress = data.savantProgress(metal);
+                if (savantProgress > 0.0F) {
+                    int stage = 1;
+                    if (savantProgress >= 0.95F) stage = 4;
+                    else if (savantProgress >= 0.75F) stage = 3;
+                    else if (savantProgress >= 0.50F) stage = 2;
+                    
+                    graphics.drawCenteredString(font, "Savant: Stage " + stage + " (" + Math.round(savantProgress * 100.0F) + "%)", 0, 10, 0xFFFFD54F);
+                    extraY += 16;
+                }
+            }
+        }
         graphics.pose().scale(1.0F/0.62F, 1.0F/0.62F, 1.0F/0.62F);
 
         // 4. Wrapped Lore Description
         graphics.pose().scale(0.50F, 0.50F, 0.50F);
         String lore = getMetalLore(metal, feruchemyTab);
         List<Component> lines = wrapLore(lore, 125);
-        int ly = 0;
+        int ly = extraY;
         for (Component line : lines) {
             graphics.drawCenteredString(font, line, 0, ly, 0xFF9EACBC);
             ly += 9;
@@ -536,7 +571,7 @@ public class MetalArtsRadialScreen extends Screen {
         MetalArtsData data = ClientMetalArtsData.data();
         boolean hasAllo = false;
         for (Metal m : Metal.cachedValues()) {
-            if (data.allomanticPowersRaw().contains(m)) {
+            if (data.allomanticPowers().contains(m)) {
                 hasAllo = true;
                 break;
             }
@@ -566,40 +601,83 @@ public class MetalArtsRadialScreen extends Screen {
             }
         }
 
-        // Mouse click triggers fallback select for absolute user compatibility
+        // Left Click (button == 0)
         if (button == 0) {
             Metal metal = feruchemyTab ? getHoveredFeruchemy(mouseX, mouseY, cx, height / 2.0F) : getHoveredAllomancy(mouseX, mouseY, cx, height / 2.0F);
             if (metal != null) {
-                selectMetal(metal);
+                if (feruchemyTab) {
+                    if (data.hasFeruchemicalPower(metal)) {
+                        int currentMode = data.feruchemyMode(metal);
+                        int nextMode = Math.max(-10, currentMode - 1);
+                        data.setFeruchemyMode(metal, nextMode);
+                        MetalArtsNetwork.sendToServer(new ServerboundSetFeruchemyModePacket(metal, nextMode));
+                        playClickSound();
+                    }
+                } else {
+                    if (data.hasAllomanticPower(metal)) {
+                        // 1. Select the metal
+                        ClientMetalArtsData.setLocalSelected(metal);
+                        MetalArtsNetwork.sendToServer(new ServerboundMetalActionPacket(MetalAction.SELECT, metal));
+                        
+                        // 2. State transitions
+                        if (!data.isBurning(metal)) {
+                            // Start burning
+                            MetalArtsNetwork.sendToServer(new ServerboundMetalActionPacket(MetalAction.START_BURN, metal));
+                        } else if (!data.isFlaring(metal)) {
+                            // Start flaring
+                            MetalArtsNetwork.sendToServer(new ServerboundMetalActionPacket(MetalAction.TOGGLE_FLARE, metal));
+                        }
+                        playClickSound();
+                    }
+                }
                 return true;
             } else {
                 onClose();
                 return true;
             }
         }
+
+        // Right Click (button == 1)
+        if (button == 1) {
+            Metal metal = feruchemyTab ? getHoveredFeruchemy(mouseX, mouseY, cx, height / 2.0F) : getHoveredAllomancy(mouseX, mouseY, cx, height / 2.0F);
+            if (metal != null) {
+                if (feruchemyTab) {
+                    if (data.hasFeruchemicalPower(metal)) {
+                        int currentMode = data.feruchemyMode(metal);
+                        int nextMode = Math.min(10, currentMode + 1);
+                        data.setFeruchemyMode(metal, nextMode);
+                        MetalArtsNetwork.sendToServer(new ServerboundSetFeruchemyModePacket(metal, nextMode));
+                        playClickSound();
+                    }
+                } else {
+                    if (data.hasAllomanticPower(metal)) {
+                        // 1. Select the metal
+                        ClientMetalArtsData.setLocalSelected(metal);
+                        MetalArtsNetwork.sendToServer(new ServerboundMetalActionPacket(MetalAction.SELECT, metal));
+                        
+                        // 2. State transitions
+                        if (data.isBurning(metal)) {
+                            if (data.isFlaring(metal)) {
+                                // Revert back to regular burning
+                                MetalArtsNetwork.sendToServer(new ServerboundMetalActionPacket(MetalAction.TOGGLE_FLARE, metal));
+                            } else {
+                                // Stop burning
+                                MetalArtsNetwork.sendToServer(new ServerboundMetalActionPacket(MetalAction.STOP_BURN, metal));
+                            }
+                            playClickSound();
+                        }
+                    }
+                }
+                return true;
+            }
+        }
+
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
     private void selectMetal(Metal metal) {
         ClientMetalArtsData.setLocalSelected(metal);
-        // Direct Allomancy toggle on selection
-        if (!feruchemyTab) {
-            MetalArtsData data = ClientMetalArtsData.data();
-            if (data.hasAllomanticPower(metal)) {
-                if (data.isBurning(metal)) {
-                    if (Screen.hasShiftDown()) {
-                        MetalArtsNetwork.sendToServer(new ServerboundMetalActionPacket(MetalAction.TOGGLE_FLARE, metal));
-                    } else {
-                        MetalArtsNetwork.sendToServer(new ServerboundMetalActionPacket(MetalAction.STOP_BURN, metal));
-                    }
-                } else {
-                    MetalArtsNetwork.sendToServer(new ServerboundMetalActionPacket(MetalAction.START_BURN, metal));
-                }
-            }
-        } else {
-            // Selected Feruchemy: sync selected metal to server
-            MetalArtsNetwork.sendToServer(new ServerboundMetalActionPacket(MetalAction.SELECT, metal));
-        }
+        MetalArtsNetwork.sendToServer(new ServerboundMetalActionPacket(MetalAction.SELECT, metal));
         playClickSound();
         onClose();
     }
@@ -628,8 +706,8 @@ public class MetalArtsRadialScreen extends Screen {
     }
 
     private int getNextFeruchemicalMode(int current, double scrollDelta) {
-        int[] sequence = {-1, 0, 1, 2, 4, 8};
-        int index = 1; // Default Idle (0)
+        int[] sequence = {-10, -8, -6, -4, -2, -1, 0, 1, 2, 4, 8, 10};
+        int index = 6; // Default Idle (0)
         for (int i = 0; i < sequence.length; i++) {
             if (sequence[i] == current) {
                 index = i;
@@ -651,7 +729,7 @@ public class MetalArtsRadialScreen extends Screen {
             MetalArtsData data = ClientMetalArtsData.data();
             boolean hasAllo = false;
             for (Metal m : Metal.cachedValues()) {
-                if (data.allomanticPowersRaw().contains(m)) {
+                if (data.allomanticPowers().contains(m)) {
                     hasAllo = true;
                     break;
                 }
@@ -709,31 +787,31 @@ public class MetalArtsRadialScreen extends Screen {
         // God Metals centers and radius check
         double dxAtium = mouseX - (cx - 72.0F);
         double dyAtium = mouseY - godMetalY;
-        if (dxAtium * dxAtium + dyAtium * dyAtium <= 20.0F * 20.0F && data.allomanticPowersRaw().contains(Metal.ATIUM)) {
+        if (dxAtium * dxAtium + dyAtium * dyAtium <= 20.0F * 20.0F && data.allomanticPowers().contains(Metal.ATIUM)) {
             return Metal.ATIUM;
         }
 
         double dxLerasium = mouseX - (cx - 36.0F);
         double dyLerasium = mouseY - godMetalY;
-        if (dxLerasium * dxLerasium + dyLerasium * dyLerasium <= 20.0F * 20.0F && data.allomanticPowersRaw().contains(Metal.LERASIUM)) {
+        if (dxLerasium * dxLerasium + dyLerasium * dyLerasium <= 20.0F * 20.0F && data.allomanticPowers().contains(Metal.LERASIUM)) {
             return Metal.LERASIUM;
         }
 
         double dxTrellium = mouseX - cx;
         double dyTrellium = mouseY - godMetalY;
-        if (dxTrellium * dxTrellium + dyTrellium * dyTrellium <= 20.0F * 20.0F && data.allomanticPowersRaw().contains(Metal.TRELLIUM)) {
+        if (dxTrellium * dxTrellium + dyTrellium * dyTrellium <= 20.0F * 20.0F && data.allomanticPowers().contains(Metal.TRELLIUM)) {
             return Metal.TRELLIUM;
         }
 
         double dxRaysium = mouseX - (cx + 36.0F);
         double dyRaysium = mouseY - godMetalY;
-        if (dxRaysium * dxRaysium + dyRaysium * dyRaysium <= 20.0F * 20.0F && data.allomanticPowersRaw().contains(Metal.RAYSIUM)) {
+        if (dxRaysium * dxRaysium + dyRaysium * dyRaysium <= 20.0F * 20.0F && data.allomanticPowers().contains(Metal.RAYSIUM)) {
             return Metal.RAYSIUM;
         }
 
         double dxTanavastium = mouseX - (cx + 72.0F);
         double dyTanavastium = mouseY - godMetalY;
-        if (dxTanavastium * dxTanavastium + dyTanavastium * dyTanavastium <= 20.0F * 20.0F && data.allomanticPowersRaw().contains(Metal.TANAVASTIUM)) {
+        if (dxTanavastium * dxTanavastium + dyTanavastium * dyTanavastium <= 20.0F * 20.0F && data.allomanticPowers().contains(Metal.TANAVASTIUM)) {
             return Metal.TANAVASTIUM;
         }
 
@@ -759,10 +837,10 @@ public class MetalArtsRadialScreen extends Screen {
 
         if (dist < 75.0D) {
             Metal inner = ALLOMANCY_INNER[sector];
-            return data.allomanticPowersRaw().contains(inner) ? inner : null;
+            return data.allomanticPowers().contains(inner) ? inner : null;
         } else {
             Metal outer = ALLOMANCY_OUTER[sector];
-            return data.allomanticPowersRaw().contains(outer) ? outer : null;
+            return data.allomanticPowers().contains(outer) ? outer : null;
         }
     }
 
