@@ -11,8 +11,10 @@ public class StuckSpike {
     private final float strength;
     private final double ox, oy, oz;
     private final float rx, ry, rz;
+    private final String identityKey;
+    private final CompoundTag stolenSpiritWeb;
 
-    public StuckSpike(Metal metal, boolean charged, String powerType, Metal powerMetal, float strength, double ox, double oy, double oz, float rx, float ry, float rz) {
+    public StuckSpike(Metal metal, boolean charged, String powerType, Metal powerMetal, float strength, double ox, double oy, double oz, float rx, float ry, float rz, String identityKey, CompoundTag stolenSpiritWeb) {
         this.metal = metal;
         this.charged = charged;
         this.powerType = powerType != null ? powerType : "";
@@ -24,6 +26,16 @@ public class StuckSpike {
         this.rx = rx;
         this.ry = ry;
         this.rz = rz;
+        this.identityKey = identityKey != null ? identityKey : "";
+        this.stolenSpiritWeb = stolenSpiritWeb != null ? stolenSpiritWeb : new CompoundTag();
+    }
+
+    public StuckSpike(Metal metal, boolean charged, String powerType, Metal powerMetal, float strength, double ox, double oy, double oz, float rx, float ry, float rz, String identityKey) {
+        this(metal, charged, powerType, powerMetal, strength, ox, oy, oz, rx, ry, rz, identityKey, new CompoundTag());
+    }
+
+    public StuckSpike(Metal metal, boolean charged, String powerType, Metal powerMetal, float strength, double ox, double oy, double oz, float rx, float ry, float rz) {
+        this(metal, charged, powerType, powerMetal, strength, ox, oy, oz, rx, ry, rz, "", new CompoundTag());
     }
 
     public Metal getMetal() { return metal; }
@@ -37,6 +49,8 @@ public class StuckSpike {
     public float getRx() { return rx; }
     public float getRy() { return ry; }
     public float getRz() { return rz; }
+    public String getIdentityKey() { return identityKey; }
+    public CompoundTag getStolenSpiritWeb() { return stolenSpiritWeb; }
 
     public CompoundTag serializeNBT() {
         CompoundTag tag = new CompoundTag();
@@ -51,6 +65,8 @@ public class StuckSpike {
         tag.putFloat("rx", rx);
         tag.putFloat("ry", ry);
         tag.putFloat("rz", rz);
+        tag.putString("IdentityKey", identityKey);
+        tag.put("StolenSpiritWeb", stolenSpiritWeb);
         return tag;
     }
 
@@ -66,6 +82,8 @@ public class StuckSpike {
         float rx = tag.getFloat("rx");
         float ry = tag.getFloat("ry");
         float rz = tag.getFloat("rz");
-        return new StuckSpike(metal, charged, powerType, powerMetal, strength, ox, oy, oz, rx, ry, rz);
+        String identityKey = tag.contains("IdentityKey") ? tag.getString("IdentityKey") : "";
+        CompoundTag stolenSpiritWeb = tag.contains("StolenSpiritWeb") ? tag.getCompound("StolenSpiritWeb") : new CompoundTag();
+        return new StuckSpike(metal, charged, powerType, powerMetal, strength, ox, oy, oz, rx, ry, rz, identityKey, stolenSpiritWeb);
     }
 }

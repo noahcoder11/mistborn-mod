@@ -210,6 +210,24 @@ public final class CuriosIntegration {
         });
     }
 
+    public static java.util.List<ItemStack> getEquippedSpikes(ServerPlayer player) {
+        java.util.List<ItemStack> spikes = new java.util.ArrayList<>();
+        CuriosApi.getCuriosInventory(player).ifPresent(handler -> {
+            for (String slotType : PREFERRED_SLOTS) {
+                handler.getStacksHandler(slotType).ifPresent(stacksHandler -> {
+                    var stacks = stacksHandler.getStacks();
+                    for (int i = 0; i < stacks.getSlots(); i++) {
+                        ItemStack stack = stacks.getStackInSlot(i);
+                        if (stack.getItem() instanceof HemalurgicSpikeItem spike && spike.charged()) {
+                            spikes.add(stack);
+                        }
+                    }
+                });
+            }
+        });
+        return spikes;
+    }
+
     private static boolean isMatchingQuadrant(String slotType, Metal metal) {
         return switch (slotType) {
             case "physical_quadrant" -> metal == Metal.STEEL || metal == Metal.IRON || metal == Metal.TIN || metal == Metal.PEWTER;

@@ -200,7 +200,7 @@ public class HemalurgicAltarBlock extends BedBlock {
             if (stack.getItem() instanceof com.not_noah.mistborn_metal_arts.item.HemalurgicSpikeItem spike) {
                 if (occupant != null) {
                     net.minecraft.world.phys.Vec3 hitPos = hit.getLocation().subtract(occupant.position());
-                    com.not_noah.mistborn_metal_arts.capability.MetalArtsEvents.ForgeEvents.performSpikingRitual(serverPlayer, occupant, spike, stack, hand, footPos, hitPos);
+                    com.not_noah.mistborn_metal_arts.capability.HemalurgyEvents.performSpikingRitual(serverPlayer, occupant, spike, stack, hand, footPos, hitPos);
                     return InteractionResult.CONSUME;
                 }
                 return InteractionResult.PASS;

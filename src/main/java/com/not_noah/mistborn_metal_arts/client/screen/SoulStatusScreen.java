@@ -25,6 +25,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.items.IItemHandlerModifiable;
 import top.theillusivec4.curios.api.CuriosApi;
 import top.theillusivec4.curios.api.type.inventory.ICurioStacksHandler;
+import com.not_noah.mistborn_metal_arts.api.SpiritWeb;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +34,7 @@ import java.util.Optional;
 public class SoulStatusScreen extends Screen {
     
     private float backgroundFade = 0.0F;
+    private int activeTab = 0; // 0 = STATUS, 1 = ATTRIBUTES
 
     private static final String[] PREFERRED_SLOTS = {
         "physical_quadrant", "mental_quadrant", "spiritual_quadrant", "temporal_quadrant",
@@ -190,106 +192,204 @@ public class SoulStatusScreen extends Screen {
         currentY = drawQuadrantSection(graphics, font, "TEMPORAL QUADRANT", temporal, leftX, currentY + 6);
 
         // ═══════════════════════════════════════════════
-        // ── 3. RIGHT PANEL: SAVANTISM & SYSTEM STATUS ──
+        // ── 3. RIGHT PANEL: TABS & SYSTEM STATUS ──
         // ═══════════════════════════════════════════════
         int rightX = width - 150;
-        graphics.drawString(font, "SPIRITUAL ANOMALIES", rightX, startY, 0xFFCFD8DC, true);
-        graphics.fill(rightX, startY + 11, rightX + 130, startY + 12, 0x44FFFFFF);
+        
+        // Draw tab headers
+        int statusTabColor = activeTab == 0 ? 0xFF00E5FF : 0xFF90A4AE;
+        int attrsTabColor = activeTab == 1 ? 0xFF00E5FF : 0xFF90A4AE;
+        
+        // Draw slight background panel for tabs
+        graphics.fill(rightX - 4, startY - 4, rightX + 134, startY + 14, 0x22000000);
+        if (activeTab == 0) {
+            graphics.fill(rightX - 4, startY - 4, rightX + 62, startY + 13, 0x15FFFFFF);
+        } else {
+            graphics.fill(rightX + 62, startY - 4, rightX + 134, startY + 13, 0x15FFFFFF);
+        }
+        
+        graphics.drawString(font, "STATUS", rightX + 12, startY + 2, statusTabColor, false);
+        graphics.drawString(font, "ATTRIBUTES", rightX + 70, startY + 2, attrsTabColor, false);
+        
+        // Tab baseline separator
+        graphics.fill(rightX - 4, startY + 13, rightX + 134, startY + 14, 0x33FFFFFF);
+        if (activeTab == 0) {
+            graphics.fill(rightX - 4, startY + 13, rightX + 62, startY + 14, 0xFF00E5FF);
+        } else {
+            graphics.fill(rightX + 62, startY + 13, rightX + 134, startY + 14, 0xFF00E5FF);
+        }
 
-        int savantY = startY + 20;
-        int activeSavantsCount = 0;
+        int savantY = startY + 22;
 
-        for (Metal metal : Metal.cachedValues()) {
-            float progress = data.savantProgress(metal);
-            if (progress > 0.0F) {
-                activeSavantsCount++;
-                int stage = 1;
-                if (progress >= 0.95F) stage = 4;
-                else if (progress >= 0.75F) stage = 3;
-                else if (progress >= 0.50F) stage = 2;
+        if (activeTab == 0) {
+            // --- TAB 1: STATUS ---
+            graphics.drawString(font, "SPIRITUAL ANOMALIES", rightX, savantY, 0xFFCFD8DC, true);
+            graphics.fill(rightX, savantY + 11, rightX + 130, savantY + 12, 0x44FFFFFF);
+            savantY += 18;
 
-                int pct = Math.round(progress * 100.0F);
-                
-                // Draw metal title
-                graphics.drawString(font, metal.displayName() + " Savant", rightX, savantY, 0xFFFFD54F, true);
-                
-                // Draw Stage label
-                String stageText = "Stage " + stage + " (" + pct + "%)";
-                graphics.drawString(font, stageText, rightX + 130 - font.width(stageText), savantY, 0xFFB0BEC5, false);
+            int activeSavantsCount = 0;
+            for (Metal metal : Metal.cachedValues()) {
+                float progress = data.savantProgress(metal);
+                if (progress > 0.0F) {
+                    activeSavantsCount++;
+                    int stage = 1;
+                    if (progress >= 0.95F) stage = 4;
+                    else if (progress >= 0.75F) stage = 3;
+                    else if (progress >= 0.50F) stage = 2;
 
-                // Draw tiny custom progress bar
-                savantY += 10;
-                graphics.fill(rightX, savantY, rightX + 130, savantY + 3, 0x22FFFFFF);
-                int barWidth = (int)(130.0F * progress);
-                graphics.fill(rightX, savantY, rightX + barWidth, savantY + 3, 0xFFFFB300);
+                    int pct = Math.round(progress * 100.0F);
+                    
+                    graphics.drawString(font, metal.displayName() + " Savant", rightX, savantY, 0xFFFFD54F, true);
+                    
+                    String stageText = "Stage " + stage + " (" + pct + "%)";
+                    graphics.drawString(font, stageText, rightX + 130 - font.width(stageText), savantY, 0xFFB0BEC5, false);
 
-                // Draw active warnings / cravings
-                savantY += 5;
-                if (data.isBurning(metal)) {
-                    graphics.drawString(font, "• Stably burning (Active)", rightX + 4, savantY, 0xFF81C784, false);
-                    savantY += 9;
-                } else {
-                    // Check withdrawal stages
-                    long lastBurn = data.savantLastBurned(metal);
-                    long timeSince = player.level().getGameTime() - lastBurn;
-                    if (timeSince > 6000L) { // >5 minutes
-                        int withdrawalStage = 1;
-                        if (timeSince > 24000L) withdrawalStage = 4; // >20 min
-                        else if (timeSince > 18000L) withdrawalStage = 3; // >15 min
-                        else if (timeSince > 12000L) withdrawalStage = 2; // >10 min
-                        
-                        String alert = "• Craving: withdrawal III";
-                        if (withdrawalStage == 1) alert = "• Urge: withdrawal I";
-                        else if (withdrawalStage == 2) alert = "• urge: withdrawal II";
-                        else if (withdrawalStage == 4) alert = "• CRITICAL: withdrawal IV";
+                    savantY += 10;
+                    graphics.fill(rightX, savantY, rightX + 130, savantY + 3, 0x22FFFFFF);
+                    int barWidth = (int)(130.0F * progress);
+                    graphics.fill(rightX, savantY, rightX + barWidth, savantY + 3, 0xFFFFB300);
 
-                        graphics.drawString(font, alert, rightX + 4, savantY, 0xFFE57373, false);
+                    savantY += 5;
+                    if (data.isBurning(metal)) {
+                        graphics.drawString(font, "• Stably burning (Active)", rightX + 4, savantY, 0xFF81C784, false);
                         savantY += 9;
                     } else {
-                        graphics.drawString(font, "• Stored cravings (Resting)", rightX + 4, savantY, 0xFF90A4AE, false);
-                        savantY += 9;
+                        long lastBurn = data.savantLastBurned(metal);
+                        long timeSince = player.level().getGameTime() - lastBurn;
+                        if (timeSince > 6000L) {
+                            int withdrawalStage = 1;
+                            if (timeSince > 24000L) withdrawalStage = 4;
+                            else if (timeSince > 18000L) withdrawalStage = 3;
+                            else if (timeSince > 12000L) withdrawalStage = 2;
+                            
+                            String alert = "• Craving: withdrawal III";
+                            if (withdrawalStage == 1) alert = "• Urge: withdrawal I";
+                            else if (withdrawalStage == 2) alert = "• urge: withdrawal II";
+                            else if (withdrawalStage == 4) alert = "• CRITICAL: withdrawal IV";
+
+                            graphics.drawString(font, alert, rightX + 4, savantY, 0xFFE57373, false);
+                            savantY += 9;
+                        } else {
+                            graphics.drawString(font, "• Stored cravings (Resting)", rightX + 4, savantY, 0xFF90A4AE, false);
+                            savantY += 9;
+                        }
+                    }
+                    savantY += 3;
+                }
+            }
+
+            if (activeSavantsCount == 0) {
+                graphics.drawString(font, "No Savant anomalies", rightX + 6, savantY, 0xFF90A4AE, false);
+                savantY += 12;
+                graphics.drawString(font, "detected in spiritweb.", rightX + 6, savantY, 0xFF90A4AE, false);
+                savantY += 12;
+            }
+
+            savantY += 8;
+            graphics.drawString(font, "SOUL COMPOSITION", rightX, savantY, 0xFFCFD8DC, true);
+            graphics.fill(rightX, savantY + 11, rightX + 130, savantY + 12, 0x44FFFFFF);
+            savantY += 18;
+
+            float baseMax = ServerConfig.VALUES.soulStabilityBaseMax.get().floatValue();
+            int totalSpikesCount = allSpikes.size();
+            float displayScarring = Math.min(baseMax, data.spiritualScarring() + (totalSpikesCount * 10.0F));
+            float maxStability = Math.max(0.0F, baseMax - displayScarring);
+
+            graphics.drawString(font, "Max Stability:", rightX + 4, savantY, 0xFFB0BEC5, false);
+            String maxStabStr = Math.round(maxStability) + "%";
+            graphics.drawString(font, maxStabStr, rightX + 130 - font.width(maxStabStr), savantY, 0xFF00E5FF, false);
+            savantY += 10;
+
+            graphics.drawString(font, "Spiritual Scars:", rightX + 4, savantY, 0xFFB0BEC5, false);
+            String scarsStr = Math.round(displayScarring) + "%";
+            graphics.drawString(font, scarsStr, rightX + 130 - font.width(scarsStr), savantY, 0xFFE57373, false);
+            savantY += 10;
+
+            graphics.drawString(font, "Identity Floor:", rightX + 4, savantY, 0xFFB0BEC5, false);
+            int floorVal = Math.round(totalSpikesCount * (float) ServerConfig.VALUES.contaminationPerSpike.get().doubleValue());
+            graphics.drawString(font, floorVal + "%", rightX + 130 - font.width(floorVal + "%"), savantY, 0xFFB388FF, false);
+            savantY += 10;
+
+            graphics.drawString(font, "Forced Snaps:", rightX + 4, savantY, 0xFFB0BEC5, false);
+            graphics.drawString(font, data.forcedSystemCount() + "", rightX + 130 - font.width(data.forcedSystemCount() + ""), savantY, 0xFFFF80AB, false);
+            savantY += 10;
+
+            // Identity Key displays in STATUS tab!
+            Optional<SpiritWeb> webOpt = player.getCapability(MetalArtsCapabilities.SPIRIT_WEB).resolve();
+            if (webOpt.isPresent()) {
+                SpiritWeb web = webOpt.get();
+                if (web.spiritualAttributes != null && web.spiritualAttributes.identity != null) {
+                    String idKey = web.spiritualAttributes.identity;
+                    String displayId = idKey.length() > 8 ? idKey.substring(0, 8) + "..." : idKey;
+                    graphics.drawString(font, "Identity Key:", rightX + 4, savantY, 0xFFB0BEC5, false);
+                    graphics.drawString(font, displayId, rightX + 130 - font.width(displayId), savantY, 0xFFB388FF, false);
+                    savantY += 10;
+                }
+            }
+        } else {
+            // --- TAB 2: ATTRIBUTES ---
+            Optional<SpiritWeb> webOpt = player.getCapability(MetalArtsCapabilities.SPIRIT_WEB).resolve();
+            if (webOpt.isPresent()) {
+                SpiritWeb web = webOpt.get();
+
+                graphics.drawString(font, "PHYSICAL ATTRIBUTES", rightX, savantY, 0xFFCFD8DC, true);
+                graphics.fill(rightX, savantY + 11, rightX + 130, savantY + 12, 0x44FFFFFF);
+                savantY += 18;
+
+                float totalStrength = web.getTotalStrength();
+                float fistDamage = 1.0F + (totalStrength - 1.0F) * 4.0F;
+                float displayDmg = Math.round(fistDamage * 10.0F) / 10.0F;
+                String strengthSuffix = displayDmg + " dmg";
+                savantY = drawAttributeRow(graphics, font, "Strength", totalStrength, strengthSuffix, rightX, savantY);
+                
+                savantY = drawAttributeRow(graphics, font, "Senses", web.getTotalSight(), null, rightX, savantY);
+                
+                float totalSpeed = web.getTotalSpeed();
+                float speedModifier = (totalSpeed - 1.0F) * 100.0F;
+                String speedSuffix = (speedModifier >= 0.0F ? "+" : "") + Math.round(speedModifier) + "% spd";
+                savantY = drawAttributeRow(graphics, font, "Speed", totalSpeed, speedSuffix, rightX, savantY);
+                
+                savantY = drawAttributeRow(graphics, font, "Resistance", web.getTotalResistance(), null, rightX, savantY);
+                savantY = drawAttributeRow(graphics, font, "Weight", web.getTotalWeight(), null, rightX, savantY);
+                
+                float totalHealth = web.getTotalHealth();
+                float displayHP = Math.round(totalHealth * 20.0F * 10.0F) / 10.0F;
+                String healthSuffix = displayHP + " HP";
+                savantY = drawAttributeRow(graphics, font, "Max Health", totalHealth, healthSuffix, rightX, savantY);
+
+                savantY += 4;
+                graphics.drawString(font, "COGNITIVE ATTRIBUTES", rightX, savantY, 0xFFCFD8DC, true);
+                graphics.fill(rightX, savantY + 11, rightX + 130, savantY + 12, 0x44FFFFFF);
+                savantY += 18;
+
+                savantY = drawAttributeRow(graphics, font, "Mental Speed", web.getTotalMentalSpeed(), null, rightX, savantY);
+                savantY = drawAttributeRow(graphics, font, "Wakefulness", web.getTotalWakefulness(), null, rightX, savantY);
+                savantY = drawAttributeRow(graphics, font, "Willpower", web.getTotalDetermination(), null, rightX, savantY);
+                savantY = drawAttributeRow(graphics, font, "Intellect", web.getTotalIntelligence(), null, rightX, savantY);
+
+                if (web.spiritualAttributes != null && web.spiritualAttributes.getConnections() != null && !web.spiritualAttributes.getConnections().isEmpty()) {
+                    savantY += 4;
+                    graphics.drawString(font, "CONNECTIONS", rightX, savantY, 0xFFCFD8DC, true);
+                    graphics.fill(rightX, savantY + 11, rightX + 130, savantY + 12, 0x44FFFFFF);
+                    savantY += 18;
+
+                    boolean hasConn = false;
+                    for (var entry : web.spiritualAttributes.getConnections().entrySet()) {
+                        if (entry.getValue() > 0.0F) {
+                            hasConn = true;
+                            graphics.drawString(font, uppercaseFirst(entry.getKey()), rightX + 4, savantY, 0xFFB388FF, false);
+                            String pctStr = Math.round(entry.getValue() * 100.0F) + "%";
+                            graphics.drawString(font, pctStr, rightX + 130 - font.width(pctStr), savantY, 0xFFCFD8DC, false);
+                            savantY += 10;
+                        }
+                    }
+                    if (!hasConn) {
+                        graphics.drawString(font, "None detected", rightX + 6, savantY, 0x77FFFFFF, false);
+                        savantY += 10;
                     }
                 }
-                savantY += 3;
             }
         }
-
-        if (activeSavantsCount == 0) {
-            graphics.drawString(font, "No Savant anomalies", rightX + 6, savantY, 0xFF90A4AE, false);
-            savantY += 12;
-            graphics.drawString(font, "detected in spiritweb.", rightX + 6, savantY, 0xFF90A4AE, false);
-        }
-
-        // Draw general metrics summary under anomalies
-        savantY += 10;
-        graphics.drawString(font, "SOUL COMPOSITION", rightX, savantY, 0xFFCFD8DC, true);
-        graphics.fill(rightX, savantY + 11, rightX + 130, savantY + 12, 0x44FFFFFF);
-        savantY += 18;
-
-        // Max Stability (dynamic maximum stability ceiling based on spiritual scarring)
-        float baseMax = ServerConfig.VALUES.soulStabilityBaseMax.get().floatValue();
-        float maxStability = baseMax - data.spiritualScarring();
-        graphics.drawString(font, "Max Stability:", rightX + 4, savantY, 0xFFB0BEC5, false);
-        String maxStabStr = Math.round(maxStability) + "%";
-        graphics.drawString(font, maxStabStr, rightX + 130 - font.width(maxStabStr), savantY, 0xFF00E5FF, false);
-        savantY += 10;
-
-        // Spiritual Scarring
-        graphics.drawString(font, "Spiritual Scars:", rightX + 4, savantY, 0xFFB0BEC5, false);
-        String scarsStr = Math.round(data.spiritualScarring()) + "%";
-        graphics.drawString(font, scarsStr, rightX + 130 - font.width(scarsStr), savantY, 0xFFE57373, false);
-        savantY += 10;
-
-        // Contamination details
-        graphics.drawString(font, "Identity Floor:", rightX + 4, savantY, 0xFFB0BEC5, false);
-        int totalSpikesCount = allSpikes.size();
-        int floorVal = Math.round(totalSpikesCount * (float) ServerConfig.VALUES.contaminationPerSpike.get().doubleValue());
-        graphics.drawString(font, floorVal + "%", rightX + 130 - font.width(floorVal + "%"), savantY, 0xFFB388FF, false);
-        savantY += 10;
-
-        // Bloat details
-        graphics.drawString(font, "Forced Snaps:", rightX + 4, savantY, 0xFFB0BEC5, false);
-        graphics.drawString(font, data.forcedSystemCount() + "", rightX + 130 - font.width(data.forcedSystemCount() + ""), savantY, 0xFFFF80AB, false);
     }
 
     private int drawQuadrantSection(GuiGraphics graphics, Font font, String title, List<TempSpike> list, int x, int y) {
@@ -313,6 +413,35 @@ public class SoulStatusScreen extends Screen {
             }
         }
         return y;
+    }
+
+    private int drawAttributeRow(GuiGraphics graphics, Font font, String label, float val, String suffix, int x, int y) {
+        graphics.drawString(font, label + ":", x + 4, y, 0xFFB0BEC5, false);
+        int pct = Math.round(val * 100.0F);
+        String valStr = pct + "%" + (suffix != null && !suffix.isEmpty() ? " (" + suffix + ")" : "");
+        int color;
+        if (val > 1.0F) color = 0xFF81C784; // Light green
+        else if (val < 1.0F) color = 0xFFE57373; // Soft red
+        else color = 0xFFB0BEC5; // Slate gray/neutral
+        graphics.drawString(font, valStr, x + 130 - font.width(valStr), y, color, false);
+        return y + 10;
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        int rightX = this.width - 150;
+        int startY = 32;
+        if (mouseX >= rightX && mouseX <= rightX + 60 && mouseY >= startY && mouseY <= startY + 14) {
+            this.activeTab = 0;
+            Minecraft.getInstance().getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0F));
+            return true;
+        }
+        if (mouseX >= rightX + 62 && mouseX <= rightX + 130 && mouseY >= startY && mouseY <= startY + 14) {
+            this.activeTab = 1;
+            Minecraft.getInstance().getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0F));
+            return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     private String uppercaseFirst(String str) {

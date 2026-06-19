@@ -9,7 +9,6 @@ import com.not_noah.mistborn_metal_arts.network.MetalAction;
 import com.not_noah.mistborn_metal_arts.network.MetalArtsNetwork;
 import com.not_noah.mistborn_metal_arts.registry.ModEntityTypes;
 import com.not_noah.mistborn_metal_arts.registry.ModItems;
-import com.not_noah.mistborn_metal_arts.worldgen.KredikShawBuilder;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -18,31 +17,16 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Registry;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.levelgen.structure.Structure;
 
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.stream.Stream;
 
 public final class MetalArtsCommand {
-    private static final ResourceKey<Registry<Structure>> STRUCTURE_REGISTRY = ResourceKey.createRegistryKey(new ResourceLocation("minecraft", "worldgen/structure"));
-    private static TagKey<Structure> KREDIK_SHAW_STRUCTURES;
-
-    private static TagKey<Structure> getKredikTag() {
-        if (KREDIK_SHAW_STRUCTURES == null) {
-            KREDIK_SHAW_STRUCTURES = TagKey.create(STRUCTURE_REGISTRY, new ResourceLocation("mistborn_metal_arts", "kredik_shaw"));
-        }
-        return KREDIK_SHAW_STRUCTURES;
-    }
 
     private MetalArtsCommand() {
     }
@@ -160,10 +144,6 @@ public final class MetalArtsCommand {
                                 .then(Commands.argument("player", EntityArgument.player())
                                         .then(Commands.argument("value", DoubleArgumentType.doubleArg(0D, 100D))
                                                 .executes(ctx -> setBloat(ctx.getSource(), EntityArgument.getPlayer(ctx, "player"), DoubleArgumentType.getDouble(ctx, "value"))))))
-                        .then(Commands.literal("place_kredik_shaw")
-                                .executes(ctx -> placeKredikShaw(ctx.getSource())))
-                        .then(Commands.literal("locate_kredik_shaw")
-                                .executes(ctx -> locateKredikShaw(ctx.getSource())))
                         .then(Commands.literal("spawn_metalborn")
                                 .then(Commands.argument("role", StringArgumentType.word()).suggests((ctx, builder) -> SharedSuggestionProvider.suggest(metalbornChoices(), builder))
                                         .executes(ctx -> spawnMetalborn(ctx.getSource(), StringArgumentType.getString(ctx, "role")))))));
@@ -353,29 +333,6 @@ public final class MetalArtsCommand {
     private static int debugCapability(CommandSourceStack source, ServerPlayer player) {
         player.getCapability(MetalArtsCapabilities.METAL_ARTS).ifPresent(data -> source.sendSuccess(() -> Component.literal(data.serializeNBT().toString()), false));
         return 1;
-    }
-
-    private static int placeKredikShaw(CommandSourceStack source) {
-        if (source.getEntity() instanceof ServerPlayer player) {
-            KredikShawBuilder.place(player);
-            return 1;
-        }
-        source.sendFailure(Component.literal("This debug placement command must be run by a player."));
-        return 0;
-    }
-
-    private static int locateKredikShaw(CommandSourceStack source) {
-        BlockPos origin = BlockPos.containing(source.getPosition());
-        BlockPos located = source.getLevel().findNearestMapStructure(getKredikTag(), origin, 128, false);
-        if (located != null) {
-            source.sendSuccess(() -> Component.literal("Nearest registered Kredik Shaw is near "
-                    + located.getX() + ", " + located.getY() + ", " + located.getZ()
-                    + ". Vanilla /locate should also work as /locate structure mistborn_metal_arts:kredik_shaw."), false);
-            return 1;
-        }
-
-        source.sendFailure(Component.literal("No registered Kredik Shaw found nearby. Try vanilla /locate structure mistborn_metal_arts:kredik_shaw after generating/reloading the world."));
-        return 0;
     }
 
     private static int spawnMetalborn(CommandSourceStack source, String roleName) {

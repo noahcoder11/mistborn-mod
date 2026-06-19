@@ -72,6 +72,12 @@ public final class ServerConfig {
     public final ForgeConfigSpec.IntValue maxActiveBubblesServer;
     public final ForgeConfigSpec.DoubleValue timeBubbleRadius;
     public final ForgeConfigSpec.IntValue timeBubbleDuration;
+    public final ForgeConfigSpec.DoubleValue baseBendalloySlowFactor;
+    public final ForgeConfigSpec.DoubleValue bendalloyFlareMultiplier;
+    public final ForgeConfigSpec.DoubleValue maxBendalloySlowFactor;
+    public final ForgeConfigSpec.BooleanValue affectOtherPlayers;
+    public final ForgeConfigSpec.BooleanValue soundPitchShiftEnabled;
+    public final ForgeConfigSpec.DoubleValue maxAffectedDistanceOutsideBubble;
 
     public final ForgeConfigSpec.BooleanValue skillProgressionEnabled;
     public final EnumMap<Metal, ForgeConfigSpec.BooleanValue> metalEnabled = new EnumMap<>(Metal.class);
@@ -84,14 +90,7 @@ public final class ServerConfig {
     public final ForgeConfigSpec.DoubleValue lerasiumRarity;
     public final ForgeConfigSpec.DoubleValue structureSpawnRate;
     public final ForgeConfigSpec.DoubleValue mobSpawnRate;
-    public final ForgeConfigSpec.BooleanValue kredikShawEnabled;
-    public final ForgeConfigSpec.IntValue kredikShawSpacing;
-    public final ForgeConfigSpec.IntValue kredikShawSeparation;
-    public final ForgeConfigSpec.IntValue kredikShawSalt;
-    public final ForgeConfigSpec.DoubleValue kredikShawLootMultiplier;
-    public final ForgeConfigSpec.DoubleValue kredikShawMobDensity;
-    public final ForgeConfigSpec.BooleanValue kredikShawHasWell;
-    public final ForgeConfigSpec.BooleanValue kredikShawRequiresKeyForWell;
+
     public final ForgeConfigSpec.BooleanValue wellEnabled;
     public final ForgeConfigSpec.BooleanValue wellRequiresKredikShaw;
     public final ForgeConfigSpec.BooleanValue wellCanGrantLerasium;
@@ -125,7 +124,9 @@ public final class ServerConfig {
         builder.pop();
 
         builder.push("pvp");
-        pvpPowerEffects = builder.comment("PvP effects default conservative. No direct player mind control is implemented.").define("pvpPowerEffects", false);
+        pvpPowerEffects = builder
+                .comment("PvP effects default conservative. No direct player mind control is implemented.")
+                .define("pvpPowerEffects", false);
         builder.pop();
 
         builder.push("god_metals");
@@ -143,9 +144,17 @@ public final class ServerConfig {
         maxPushPullRange = builder.defineInRange("maxPushPullRange", 18D, 2D, 96D);
         maxPushPullForce = builder.defineInRange("maxPushPullForce", 1.35D, 0.05D, 12D);
         pushPullStrength = builder.defineInRange("pushPullStrength", 1.0D, 0.05D, 10D);
-        allowBlockMovement = builder.comment("Block movement is intentionally disabled by default to avoid griefing.").define("allowBlockMovement", false);
+        allowBlockMovement = builder.comment("Block movement is intentionally disabled by default to avoid griefing.")
+                .define("allowBlockMovement", false);
         timeBubbleRadius = builder.defineInRange("timeBubbleRadius", 7.5D, 1D, 32D);
         timeBubbleDuration = builder.defineInRange("timeBubbleDuration", 160, 20, 20 * 60 * 5);
+        baseBendalloySlowFactor = builder.defineInRange("baseBendalloySlowFactor", 8.0D, 1.0D, 128.0D);
+        bendalloyFlareMultiplier = builder.defineInRange("bendalloyFlareMultiplier", 2.0D, 1.0D, 8.0D);
+        maxBendalloySlowFactor = builder.defineInRange("maxBendalloySlowFactor", 32.0D, 1.0D, 512.0D);
+        affectOtherPlayers = builder.define("affectOtherPlayers", false);
+        soundPitchShiftEnabled = builder.define("soundPitchShiftEnabled", true);
+        maxAffectedDistanceOutsideBubble = builder.defineInRange("maxAffectedDistanceOutsideBubble", 96.0D, 16.0D,
+                256.0D);
         maxActiveBubblesPerPlayer = builder.defineInRange("maxActiveBubblesPerPlayer", 1, 0, 8);
         maxActiveBubblesServer = builder.defineInRange("maxActiveBubblesServer", 16, 0, 128);
         for (Metal metal : Metal.cachedValues()) {
@@ -154,7 +163,8 @@ public final class ServerConfig {
             }
             builder.push(metal.id());
             metalEnabled.put(metal, builder.define("enabled", true));
-            reserveCapacities.put(metal, builder.defineInRange("reserveCapacity", defaultReserveCapacity(metal), 0D, 10000D));
+            reserveCapacities.put(metal,
+                    builder.defineInRange("reserveCapacity", defaultReserveCapacity(metal), 0D, 10000D));
             burnRates.put(metal, builder.defineInRange("burnRatePerTick", defaultBurnRate(metal), 0D, 100D));
             vialValues.put(metal, builder.defineInRange("vialValue", defaultVialValue(metal), 0D, 10000D));
             powerStrengths.put(metal, builder.defineInRange("powerStrength", defaultPowerStrength(metal), 0D, 100D));
@@ -181,38 +191,55 @@ public final class ServerConfig {
         builder.pop();
 
         builder.push("soul_stability");
-        soulStabilityBaseMax = builder.comment("Maximum soul stability before any modifiers").defineInRange("soulStabilityBaseMax", 100.0D, 10D, 200D);
-        linchpinStabilityBonus = builder.comment("Soul stability bonus from having a linchpin spike").defineInRange("linchpinStabilityBonus", 35.0D, 0D, 100D);
-        stabilityLossPerSpike = builder.comment("Soul stability lost per installed spike").defineInRange("stabilityLossPerSpike", 6.0D, 1D, 25D);
-        stabilityLossPerDuplicate = builder.comment("Extra soul stability lost per duplicate power spike").defineInRange("stabilityLossPerDuplicate", 4.0D, 0D, 15D);
+        soulStabilityBaseMax = builder.comment("Maximum soul stability before any modifiers")
+                .defineInRange("soulStabilityBaseMax", 100.0D, 10D, 200D);
+        linchpinStabilityBonus = builder.comment("Soul stability bonus from having a linchpin spike")
+                .defineInRange("linchpinStabilityBonus", 35.0D, 0D, 100D);
+        stabilityLossPerSpike = builder.comment("Soul stability lost per installed spike")
+                .defineInRange("stabilityLossPerSpike", 6.0D, 1D, 25D);
+        stabilityLossPerDuplicate = builder.comment("Extra soul stability lost per duplicate power spike")
+                .defineInRange("stabilityLossPerDuplicate", 4.0D, 0D, 15D);
         builder.pop();
 
         builder.push("identity_contamination");
-        contaminationPerSpike = builder.comment("Identity contamination gained per spike").defineInRange("contaminationPerSpike", 5.0D, 1D, 20D);
-        contaminationDecayRate = builder.comment("Identity contamination passive decay per tick when resting").defineInRange("contaminationDecayRate", 0.001D, 0D, 0.1D);
+        contaminationPerSpike = builder.comment("Identity contamination gained per spike")
+                .defineInRange("contaminationPerSpike", 5.0D, 1D, 20D);
+        contaminationDecayRate = builder.comment("Identity contamination passive decay per tick when resting")
+                .defineInRange("contaminationDecayRate", 0.001D, 0D, 0.1D);
         builder.pop();
 
         builder.push("savantism");
-        savantGainPerBurnTick = builder.comment("Savantism progress gained per tick of normal burning").defineInRange("savantGainPerBurnTick", 0.00002D, 0D, 0.001D);
-        savantGainPerFlareTick = builder.comment("Savantism progress gained per tick of flaring").defineInRange("savantGainPerFlareTick", 0.00008D, 0D, 0.005D);
-        savantGainPerSpikeStack = builder.comment("Savantism progress multiplier per duplicate spike").defineInRange("savantGainPerSpikeStack", 0.15D, 0D, 1.0D);
-        savantDecayRate = builder.comment("Savantism progress decay per tick when not burning").defineInRange("savantDecayRate", 0.000005D, 0D, 0.001D);
+        savantGainPerBurnTick = builder.comment("Savantism progress gained per tick of normal burning")
+                .defineInRange("savantGainPerBurnTick", 0.00002D, 0D, 0.001D);
+        savantGainPerFlareTick = builder.comment("Savantism progress gained per tick of flaring")
+                .defineInRange("savantGainPerFlareTick", 0.00008D, 0D, 0.005D);
+        savantGainPerSpikeStack = builder.comment("Savantism progress multiplier per duplicate spike")
+                .defineInRange("savantGainPerSpikeStack", 0.15D, 0D, 1.0D);
+        savantDecayRate = builder.comment("Savantism progress decay per tick when not burning")
+                .defineInRange("savantDecayRate", 0.000005D, 0D, 0.001D);
         builder.pop();
 
         builder.push("spiritual_bloat");
-        bloatPerForcedSystem = builder.comment("Spiritual bloat gained per forced system acquisition").defineInRange("bloatPerForcedSystem", 12.0D, 1D, 50D);
+        bloatPerForcedSystem = builder.comment("Spiritual bloat gained per forced system acquisition")
+                .defineInRange("bloatPerForcedSystem", 12.0D, 1D, 50D);
         builder.pop();
 
         builder.push("stacking");
-        maxDuplicateSpikesPerPower = builder.comment("Maximum duplicate spikes for a single power").defineInRange("maxDuplicateSpikesPerPower", 6, 1, 16);
+        maxDuplicateSpikesPerPower = builder.comment("Maximum duplicate spikes for a single power")
+                .defineInRange("maxDuplicateSpikesPerPower", 6, 1, 16);
         builder.pop();
 
         builder.push("spike_decay");
-        spikeDecayRateOutside = builder.comment("Spike charge decay per tick when outside a body (in world/inventory)").defineInRange("spikeDecayRateOutside", 0.0005D, 0D, 0.01D);
-        spikeDecayRateBlood = builder.comment("Spike charge decay per tick when stored in blood").defineInRange("spikeDecayRateBlood", 0.0001D, 0D, 0.01D);
-        spikeDecayRateAluminum = builder.comment("Spike charge decay per tick when sealed in aluminum (0 = paused)").defineInRange("spikeDecayRateAluminum", 0.0D, 0D, 0.01D);
-        instantTransferWindow = builder.comment("Ticks after spike creation for instant heart-to-heart transfer bonus").defineInRange("instantTransferWindow", 60, 0, 200);
-        instantTransferRetention = builder.comment("Strength retained during instant transfer").defineInRange("instantTransferRetention", 0.98D, 0D, 1.0D);
+        spikeDecayRateOutside = builder.comment("Spike charge decay per tick when outside a body (in world/inventory)")
+                .defineInRange("spikeDecayRateOutside", 0.0005D, 0D, 0.01D);
+        spikeDecayRateBlood = builder.comment("Spike charge decay per tick when stored in blood")
+                .defineInRange("spikeDecayRateBlood", 0.0001D, 0D, 0.01D);
+        spikeDecayRateAluminum = builder.comment("Spike charge decay per tick when sealed in aluminum (0 = paused)")
+                .defineInRange("spikeDecayRateAluminum", 0.0D, 0D, 0.01D);
+        instantTransferWindow = builder.comment("Ticks after spike creation for instant heart-to-heart transfer bonus")
+                .defineInRange("instantTransferWindow", 60, 0, 200);
+        instantTransferRetention = builder.comment("Strength retained during instant transfer")
+                .defineInRange("instantTransferRetention", 0.98D, 0D, 1.0D);
         builder.pop();
 
         builder.push("worldgen");
@@ -236,20 +263,9 @@ public final class ServerConfig {
         builder.define("lerasiumShrineRooms", true);
         builder.pop();
 
-        builder.push("kredik_shaw");
-        kredikShawEnabled = builder.define("kredikShawEnabled", true);
-        kredikShawSpacing = builder.defineInRange("kredikShawSpacing", 48, 16, 4096);
-        kredikShawSeparation = builder.defineInRange("kredikShawSeparation", 16, 8, 2048);
-        kredikShawSalt = builder.defineInRange("kredikShawSalt", 610527, 1, Integer.MAX_VALUE);
-        kredikShawLootMultiplier = builder.defineInRange("kredikShawLootMultiplier", 1.0D, 0D, 16D);
-        kredikShawMobDensity = builder.defineInRange("kredikShawMobDensity", 1.0D, 0D, 16D);
-        kredikShawHasWell = builder.define("kredikShawHasWell", true);
-        kredikShawRequiresKeyForWell = builder.define("kredikShawRequiresKeyForWell", false);
-        builder.pop();
-
         builder.push("well_of_ascension");
         wellEnabled = builder.define("wellEnabled", true);
-        wellRequiresKredikShaw = builder.define("wellRequiresKredikShaw", true);
+        wellRequiresKredikShaw = builder.define("wellRequiresKredikShaw", false);
         wellCanGrantLerasium = builder.define("wellCanGrantLerasium", true);
         wellCanGrantMistborn = builder.define("wellCanGrantMistborn", false);
         wellEventCooldown = builder.defineInRange("wellEventCooldownTicks", 20 * 60 * 20, 0, 20 * 60 * 60 * 24);

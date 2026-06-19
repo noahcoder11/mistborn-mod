@@ -15,7 +15,6 @@ import com.not_noah.mistborn_metal_arts.registry.ModItems;
 import com.not_noah.mistborn_metal_arts.registry.ModMenus;
 import com.not_noah.mistborn_metal_arts.registry.ModParticles;
 import com.not_noah.mistborn_metal_arts.registry.ModSounds;
-import com.not_noah.mistborn_metal_arts.registry.ModStructures;
 import com.mojang.logging.LogUtils;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
@@ -42,7 +41,6 @@ public class MistbornMetalArts {
         ModMenus.register(modBus);
         ModBlockEntities.register(modBus);
         ModEntityTypes.register(modBus);
-        ModStructures.register(modBus);
         ModCreativeTabs.register(modBus);
         modBus.addListener(ModEntityTypes::registerAttributes);
         CuriosCompat.register(modBus);

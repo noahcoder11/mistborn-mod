@@ -32,6 +32,8 @@ public final class MetalArtsNetwork {
         CHANNEL.registerMessage(id++, ClientboundBloodSlashPacket.class, ClientboundBloodSlashPacket::toBytes, ClientboundBloodSlashPacket::new, ClientboundBloodSlashPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(id++, ServerboundSetFeruchemyModePacket.class, ServerboundSetFeruchemyModePacket::encode, ServerboundSetFeruchemyModePacket::decode, ServerboundSetFeruchemyModePacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(id++, SyncStuckSpikesPacket.class, SyncStuckSpikesPacket::toBytes, SyncStuckSpikesPacket::new, SyncStuckSpikesPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(id++, ClientboundAtiumShadowsPacket.class, ClientboundAtiumShadowsPacket::encode, ClientboundAtiumShadowsPacket::decode, ClientboundAtiumShadowsPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(id++, ClientboundSpiritWebSyncPacket.class, ClientboundSpiritWebSyncPacket::encode, ClientboundSpiritWebSyncPacket::decode, ClientboundSpiritWebSyncPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
     }
 
     public static void sendToServer(ServerboundMetalActionPacket packet) {
@@ -44,10 +46,19 @@ public final class MetalArtsNetwork {
 
     public static void sync(ServerPlayer player) {
         player.getCapability(MetalArtsCapabilities.METAL_ARTS).ifPresent(data -> sync(player, data.serializeNBT()));
+        syncSpiritWeb(player);
     }
 
     public static void sync(ServerPlayer player, net.minecraft.nbt.CompoundTag tag) {
         CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new ClientboundMetalArtsSyncPacket(tag));
+    }
+
+    public static void syncSpiritWeb(ServerPlayer player) {
+        player.getCapability(com.not_noah.mistborn_metal_arts.capability.MetalArtsCapabilities.SPIRIT_WEB).ifPresent(web -> syncSpiritWeb(player, web.serializeNBT()));
+    }
+
+    public static void syncSpiritWeb(ServerPlayer player, net.minecraft.nbt.CompoundTag tag) {
+        CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new ClientboundSpiritWebSyncPacket(tag));
     }
 
     public static void syncBloodLevel(Entity target, float bloodLevel) {
@@ -66,5 +77,9 @@ public final class MetalArtsNetwork {
 
     public static void sendBloodSlash(Entity target, double ox, double oy, double oz, int slashType, float scale, float roll, int lifetime, float projX, float projY, float projZ, boolean isArrow) {
         CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> target), new ClientboundBloodSlashPacket(target.getId(), ox, oy, oz, slashType, scale, roll, lifetime, projX, projY, projZ, isArrow));
+    }
+
+    public static void sendAtiumShadows(ServerPlayer player, int targetId, net.minecraft.world.phys.Vec3[] positions) {
+        CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new ClientboundAtiumShadowsPacket(targetId, positions));
     }
 }

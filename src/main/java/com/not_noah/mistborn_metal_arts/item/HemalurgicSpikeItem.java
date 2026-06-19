@@ -60,7 +60,9 @@ public class HemalurgicSpikeItem extends Item {
                     }
                     Metal powerMetal = Metal.byName(tag.getString("PowerMetal")).orElse(metal);
                     float strength = tag.contains("Strength") ? tag.getFloat("Strength") : 1.0F;
-                    if (HemalurgyManager.installSpike(serverPlayer, data, metal, powerType, powerMetal, strength) && !serverPlayer.getAbilities().instabuild) {
+                    String identityKey = tag.getString("SpikeIdentity");
+                    CompoundTag stolenSpiritWeb = tag.contains("StolenSpiritWeb") ? tag.getCompound("StolenSpiritWeb") : new CompoundTag();
+                    if (HemalurgyManager.installSpike(serverPlayer, data, metal, powerType, powerMetal, strength, identityKey, stolenSpiritWeb) && !serverPlayer.getAbilities().instabuild) {
                         stack.shrink(1);
                     }
                 });

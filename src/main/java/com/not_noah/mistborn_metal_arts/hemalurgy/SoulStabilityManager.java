@@ -121,9 +121,9 @@ public class SoulStabilityManager {
             }
         }
 
-        float maxStability = baseMax - data.spiritualScarring();
+        float totalScarring = Math.min(baseMax, data.spiritualScarring() + (spikeCount * 10.0F));
+        float maxStability = Math.max(0.0F, baseMax - totalScarring);
         float stability = maxStability
-                - (spikeCount * lossPerSpike)
                 - (duplicateCount * lossPerDuplicate)
                 - (godMetalSpikeCount * 8.0F)
                 - (data.identityContamination() * 0.3F)
@@ -208,9 +208,9 @@ public class SoulStabilityManager {
             }
         }
 
-        float maxStability = baseMax - data.spiritualScarring();
+        float totalScarring = Math.min(baseMax, data.spiritualScarring() + (spikeCount * 10.0F));
+        float maxStability = Math.max(0.0F, baseMax - totalScarring);
         float stability = maxStability
-                - (spikeCount * lossPerSpike)
                 - (duplicateCount * lossPerDuplicate)
                 - (godMetalSpikeCount * 8.0F)
                 - (data.identityContamination() * 0.3F)
@@ -307,6 +307,10 @@ public class SoulStabilityManager {
         stack.getOrCreateTag().putString("PowerType", spike.powerType());
         stack.getOrCreateTag().putString("PowerMetal", spike.powerMetal().id());
         stack.getOrCreateTag().putFloat("Strength", spike.strength() * 0.8F); // some loss on ejection
+        stack.getOrCreateTag().putString("SpikeIdentity", spike.identityKey());
+        if (spike.stolenSpiritWeb() != null && !spike.stolenSpiritWeb().isEmpty()) {
+            stack.getOrCreateTag().put("StolenSpiritWeb", spike.stolenSpiritWeb().copy());
+        }
         return stack;
     }
 

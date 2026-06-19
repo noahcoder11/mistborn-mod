@@ -9,8 +9,18 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public class MetalArtsProvider implements ICapabilitySerializable<CompoundTag> {
-    private final MetalArtsData data = new MetalArtsData();
-    private final LazyOptional<MetalArtsData> optional = LazyOptional.of(() -> data);
+    private final MetalArtsData data;
+    private final LazyOptional<MetalArtsData> optional;
+
+    public MetalArtsProvider() {
+        this.data = new MetalArtsData();
+        this.optional = LazyOptional.of(() -> data);
+    }
+
+    public MetalArtsProvider(net.minecraft.world.entity.LivingEntity entity) {
+        this.data = new MetalArtsData(entity);
+        this.optional = LazyOptional.of(() -> data);
+    }
 
     @Override
     public @NotNull <T> LazyOptional<T> getCapability(@NotNull Capability<T> cap, @Nullable Direction side) {

@@ -18,29 +18,19 @@ public final class HemalurgyManager {
     }
 
     public static void tick(ServerPlayer player, MetalArtsData data) {
-        int corruption = data.totalCorruption();
-        if (!ServerConfig.VALUES.hemalurgyEnabled.get() || corruption <= 0) {
-            return;
-        }
-        int threshold = Math.max(1, ServerConfig.VALUES.maxSpikesBeforeCorruption.get());
-        player.addEffect(new MobEffectInstance(ModEffects.HEMALURGIC_CORRUPTION.get(), 60, Math.min(3, corruption / threshold), false, true));
-        if (corruption >= threshold * 2) {
-            player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 80, 0, false, false));
-        }
-        if (corruption >= threshold * 3) {
-            player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 80, 0, false, false));
-        }
-        if (player.tickCount % 240 == 0 && corruption >= threshold) {
-            player.level().playSound(null, player.blockPosition(), SoundEvents.SOUL_ESCAPE, SoundSource.PLAYERS, 0.25F, 1.45F);
-        }
+        // Removed old hemalurgic corruption logic in favor of soul stability & scarring consequences
     }
 
     public static boolean installSpike(ServerPlayer player, MetalArtsData data, Metal spikeMetal, String powerType, Metal powerMetal, float strength) {
+        return installSpike(player, data, spikeMetal, powerType, powerMetal, strength, com.not_noah.mistborn_metal_arts.api.SpiritualAttributes.generateIdentity(), new net.minecraft.nbt.CompoundTag());
+    }
+
+    public static boolean installSpike(ServerPlayer player, MetalArtsData data, Metal spikeMetal, String powerType, Metal powerMetal, float strength, String identityKey, net.minecraft.nbt.CompoundTag stolenSpiritWeb) {
         if (!ServerConfig.VALUES.hemalurgyEnabled.get()) {
             player.displayClientMessage(Component.translatable("message.mistborn_metal_arts.hemalurgy_disabled"), true);
             return false;
         }
-        if (!data.installSpike(spikeMetal, powerType, powerMetal, strength)) {
+        if (!data.installSpike(spikeMetal, powerType, powerMetal, strength, identityKey, stolenSpiritWeb)) {
             player.displayClientMessage(Component.translatable("message.mistborn_metal_arts.too_many_spikes"), true);
             return false;
         }

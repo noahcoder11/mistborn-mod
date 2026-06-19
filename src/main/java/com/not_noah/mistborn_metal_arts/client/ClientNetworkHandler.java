@@ -15,4 +15,13 @@ public final class ClientNetworkHandler {
             });
         }
     }
+
+    public static void handleSpiritWebSync(CompoundTag tag) {
+        net.minecraft.client.player.LocalPlayer player = net.minecraft.client.Minecraft.getInstance().player;
+        if (player != null) {
+            player.getCapability(com.not_noah.mistborn_metal_arts.capability.MetalArtsCapabilities.SPIRIT_WEB).ifPresent(web -> {
+                web.deserializeNBT(tag);
+            });
+        }
+    }
 }

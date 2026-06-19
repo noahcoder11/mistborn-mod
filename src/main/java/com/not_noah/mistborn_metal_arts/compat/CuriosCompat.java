@@ -71,6 +71,21 @@ public final class CuriosCompat {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    public static java.util.List<ItemStack> getEquippedSpikes(ServerPlayer player) {
+        if (!isLoaded()) {
+            return java.util.Collections.emptyList();
+        }
+        try {
+            Class<?> clazz = Class.forName(COMMON_INTEGRATION);
+            Method method = clazz.getMethod("getEquippedSpikes", ServerPlayer.class);
+            Object result = method.invoke(null, player);
+            return result instanceof java.util.List ? (java.util.List<ItemStack>) result : java.util.Collections.emptyList();
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException exception) {
+            return java.util.Collections.emptyList();
+        }
+    }
+
     public static ItemStack findMetalmind(ServerPlayer player, Metal metal) {
         if (!isLoaded()) {
             return ItemStack.EMPTY;

@@ -47,6 +47,13 @@ public class MetalArtsData {
     private int altarSeatIndex;
     private final EnumMap<Metal, Float> equippedAllomanticStrengths = new EnumMap<>(Metal.class);
     private boolean restrainedByOthers;
+    private final EnumMap<Metal, Float> naturalAllomanticStrengths = new EnumMap<>(Metal.class);
+    private net.minecraft.world.entity.LivingEntity entity = null;
+
+    public MetalArtsData(net.minecraft.world.entity.LivingEntity entity) {
+        this();
+        this.entity = entity;
+    }
 
     // ── Soul Stability ──
     private float soulStability = 100.0F;
@@ -79,6 +86,7 @@ public class MetalArtsData {
             metalmindCharges.put(metal, 0F);
             feruchemyModes.put(metal, 0);
             equippedAllomanticStrengths.put(metal, 0F);
+            naturalAllomanticStrengths.put(metal, 0F);
             savantProgress.put(metal, 0.0F);
             savantStage.put(metal, 0);
             savantLastBurned.put(metal, 0L);
@@ -155,6 +163,17 @@ public class MetalArtsData {
         if (metal.isAllomantic()) {
             naturalAllomanticPowers.add(metal);
         }
+        if (entity != null) {
+            entity.getCapability(MetalArtsCapabilities.SPIRIT_WEB).ifPresent(web -> {
+                com.not_noah.mistborn_metal_arts.api.InvestedArt naturalArt = web.getInvestedSystems().get("allomancy");
+                if (naturalArt instanceof com.not_noah.mistborn_metal_arts.api.Allomancy allomancy) {
+                    for (Metal m : Metal.cachedValues()) {
+                        allomancy.setPower(m, 0.0F);
+                    }
+                    allomancy.setPower(metal, 0.5F);
+                }
+            });
+        }
         markNeedsPowerRefresh();
     }
 
@@ -165,6 +184,20 @@ public class MetalArtsData {
                 naturalAllomanticPowers.add(metal);
             }
         }
+        if (entity != null) {
+            entity.getCapability(MetalArtsCapabilities.SPIRIT_WEB).ifPresent(web -> {
+                com.not_noah.mistborn_metal_arts.api.InvestedArt naturalArt = web.getInvestedSystems().get("allomancy");
+                if (naturalArt instanceof com.not_noah.mistborn_metal_arts.api.Allomancy allomancy) {
+                    for (Metal m : Metal.cachedValues()) {
+                        if (m.isAllomantic()) {
+                            if (allomancy.getPower(m) <= 0F) {
+                                allomancy.setPower(m, 0.5F);
+                            }
+                        }
+                    }
+                }
+            });
+        }
         markNeedsPowerRefresh();
     }
 
@@ -172,6 +205,16 @@ public class MetalArtsData {
         naturalAllomanticPowers.clear();
         burningMetals.clear();
         flaringMetals.clear();
+        if (entity != null) {
+            entity.getCapability(MetalArtsCapabilities.SPIRIT_WEB).ifPresent(web -> {
+                com.not_noah.mistborn_metal_arts.api.InvestedArt naturalArt = web.getInvestedSystems().get("allomancy");
+                if (naturalArt instanceof com.not_noah.mistborn_metal_arts.api.Allomancy allomancy) {
+                    for (Metal m : Metal.cachedValues()) {
+                        allomancy.setPower(m, 0.0F);
+                    }
+                }
+            });
+        }
         markNeedsPowerRefresh();
     }
 
@@ -179,6 +222,19 @@ public class MetalArtsData {
         naturalFeruchemicalPowers.clear();
         if (metal.isFeruchemical()) {
             naturalFeruchemicalPowers.add(metal);
+        }
+        if (entity != null) {
+            entity.getCapability(MetalArtsCapabilities.SPIRIT_WEB).ifPresent(web -> {
+                com.not_noah.mistborn_metal_arts.api.InvestedArt naturalArt = web.getInvestedSystems().get("feruchemy");
+                if (naturalArt instanceof com.not_noah.mistborn_metal_arts.api.Feruchemy feruchemy) {
+                    for (Metal m : Metal.cachedValues()) {
+                        if (m.isFeruchemical()) {
+                            feruchemy.setPower(m, 0.0F);
+                        }
+                    }
+                    feruchemy.setPower(metal, 1.0F);
+                }
+            });
         }
         markNeedsPowerRefresh();
     }
@@ -190,12 +246,36 @@ public class MetalArtsData {
                 naturalFeruchemicalPowers.add(metal);
             }
         }
+        if (entity != null) {
+            entity.getCapability(MetalArtsCapabilities.SPIRIT_WEB).ifPresent(web -> {
+                com.not_noah.mistborn_metal_arts.api.InvestedArt naturalArt = web.getInvestedSystems().get("feruchemy");
+                if (naturalArt instanceof com.not_noah.mistborn_metal_arts.api.Feruchemy feruchemy) {
+                    for (Metal m : Metal.cachedValues()) {
+                        if (m.isFeruchemical()) {
+                            feruchemy.setPower(m, 1.0F);
+                        }
+                    }
+                }
+            });
+        }
         markNeedsPowerRefresh();
     }
 
     public void clearFeruchemy() {
         naturalFeruchemicalPowers.clear();
         feruchemyModes.replaceAll((metal, mode) -> 0);
+        if (entity != null) {
+            entity.getCapability(MetalArtsCapabilities.SPIRIT_WEB).ifPresent(web -> {
+                com.not_noah.mistborn_metal_arts.api.InvestedArt naturalArt = web.getInvestedSystems().get("feruchemy");
+                if (naturalArt instanceof com.not_noah.mistborn_metal_arts.api.Feruchemy feruchemy) {
+                    for (Metal m : Metal.cachedValues()) {
+                        if (m.isFeruchemical()) {
+                            feruchemy.setPower(m, 0.0F);
+                        }
+                    }
+                }
+            });
+        }
         markNeedsPowerRefresh();
     }
 
@@ -205,42 +285,71 @@ public class MetalArtsData {
     }
 
     public void refreshPowers() {
+        if (entity != null) {
+            refreshPowers(entity);
+        } else {
+            needsPowerRefresh = false;
+            stopInvalidBurns();
+        }
+    }
+
+    public void refreshPowers(net.minecraft.world.entity.LivingEntity entity) {
         allomanticPowers.clear();
-        allomanticPowers.addAll(naturalAllomanticPowers);
         feruchemicalPowers.clear();
-        feruchemicalPowers.addAll(naturalFeruchemicalPowers);
         spikedAllomanticPowers.clear();
         
-        for (InstalledSpike spike : installedSpikes) {
-            if ("feruchemy".equals(spike.powerType())) {
-                feruchemicalPowers.add(spike.powerMetal());
-            } else if ("allomancy".equals(spike.powerType())) {
-                allomanticPowers.add(spike.powerMetal());
-                spikedAllomanticPowers.add(spike.powerMetal());
+        entity.getCapability(MetalArtsCapabilities.SPIRIT_WEB).ifPresent(web -> {
+            web.refreshSpikedFragments(entity, this);
+            for (Metal m : Metal.cachedValues()) {
+                if (web.hasAllomanticPower(m)) {
+                    allomanticPowers.add(m);
+                }
+                if (web.hasNaturalAllomanticPower(m)) {
+                    naturalAllomanticPowers.add(m);
+                } else {
+                    naturalAllomanticPowers.remove(m);
+                }
+                if (web.hasForeignAllomanticPower(m)) {
+                    spikedAllomanticPowers.add(m);
+                }
+                if (web.hasFeruchemicalPower(m)) {
+                    feruchemicalPowers.add(m);
+                }
+                if (web.hasNaturalFeruchemicalPower(m)) {
+                    naturalFeruchemicalPowers.add(m);
+                } else {
+                    naturalFeruchemicalPowers.remove(m);
+                }
             }
-        }
+            this.allomancySnapped = web.allomancySnapped();
+            
+            com.not_noah.mistborn_metal_arts.api.InvestedArt naturalArt = web.getInvestedSystems().get("allomancy");
+            if (naturalArt instanceof com.not_noah.mistborn_metal_arts.api.Allomancy allomancy) {
+                for (Metal m : Metal.cachedValues()) {
+                    naturalAllomanticStrengths.put(m, allomancy.getPower(m));
+                }
+            }
+        });
         needsPowerRefresh = false;
         stopInvalidBurns();
     }
 
     public float getPhysicalStrengthBonus() {
-        float bonus = 0.0F;
-        for (InstalledSpike spike : installedSpikes) {
-            if ("physical_strength".equals(spike.powerType())) {
-                bonus += spike.strength() * 4.0F; // Up to +4 damage per 100% efficiency
-            }
+        if (entity != null) {
+            return entity.getCapability(MetalArtsCapabilities.SPIRIT_WEB).map(web -> {
+                return (web.getTotalStrength() - 1.0F) * 4.0F;
+            }).orElse(0.0F);
         }
-        return bonus;
+        return 0.0F;
     }
 
     public float getPhysicalSightBonus() {
-        float bonus = 0.0F;
-        for (InstalledSpike spike : installedSpikes) {
-            if ("physical_sight".equals(spike.powerType())) {
-                bonus += spike.strength();
-            }
+        if (entity != null) {
+            return entity.getCapability(MetalArtsCapabilities.SPIRIT_WEB).map(web -> {
+                return web.getTotalSight() - 1.0F;
+            }).orElse(0.0F);
         }
-        return bonus;
+        return 0.0F;
     }
 
     public void addSpikePower(Metal metal, String type) {
@@ -372,10 +481,19 @@ public class MetalArtsData {
     }
 
     public boolean installSpike(Metal spikeMetal, String powerType, Metal powerMetal, float strength) {
+        return installSpike(spikeMetal, powerType, powerMetal, strength, com.not_noah.mistborn_metal_arts.api.SpiritualAttributes.generateIdentity(), new CompoundTag());
+    }
+
+    public boolean installSpike(Metal spikeMetal, String powerType, Metal powerMetal, float strength, String identityKey) {
+        return installSpike(spikeMetal, powerType, powerMetal, strength, identityKey, new CompoundTag());
+    }
+
+    public boolean installSpike(Metal spikeMetal, String powerType, Metal powerMetal, float strength, String identityKey, CompoundTag stolenSpiritWeb) {
         if (installedSpikes.size() >= ServerConfig.VALUES.maxInstalledSpikes.get()) {
             return false;
         }
-        InstalledSpike spike = new InstalledSpike(spikeMetal, powerType, powerMetal, Math.max(0.05F, strength), 0, 0.0F);
+        String idKey = (identityKey == null || identityKey.isBlank()) ? com.not_noah.mistborn_metal_arts.api.SpiritualAttributes.generateIdentity() : identityKey;
+        InstalledSpike spike = new InstalledSpike(spikeMetal, powerType, powerMetal, Math.max(0.05F, strength), 0, 0.0F, idKey, stolenSpiritWeb);
         installedSpikes.add(spike);
         setCorruption(corruption + Math.max(1, Math.round(2F * spike.strength())));
         if ("feruchemy".equals(spike.powerType()) && spike.powerMetal().isFeruchemical()) {
@@ -410,7 +528,7 @@ public class MetalArtsData {
     public void updateSpikeStrength(int index, float strength) {
         if (index >= 0 && index < installedSpikes.size()) {
             InstalledSpike old = installedSpikes.get(index);
-            installedSpikes.set(index, new InstalledSpike(old.spikeMetal(), old.powerType(), old.powerMetal(), Math.max(0.0F, strength), old.decayTicks(), old.feruchemicalCharge()));
+            installedSpikes.set(index, new InstalledSpike(old.spikeMetal(), old.powerType(), old.powerMetal(), Math.max(0.0F, strength), old.decayTicks(), old.feruchemicalCharge(), old.identityKey(), old.stolenSpiritWeb()));
             markNeedsPowerRefresh();
         }
     }
@@ -418,7 +536,7 @@ public class MetalArtsData {
     public void updateSpikeFeruchemicalCharge(int index, float charge) {
         if (index >= 0 && index < installedSpikes.size()) {
             InstalledSpike old = installedSpikes.get(index);
-            installedSpikes.set(index, new InstalledSpike(old.spikeMetal(), old.powerType(), old.powerMetal(), old.strength(), old.decayTicks(), Math.max(0.0F, charge)));
+            installedSpikes.set(index, new InstalledSpike(old.spikeMetal(), old.powerType(), old.powerMetal(), old.strength(), old.decayTicks(), Math.max(0.0F, charge), old.identityKey(), old.stolenSpiritWeb()));
             markNeedsPowerRefresh();
         }
     }
@@ -490,6 +608,11 @@ public class MetalArtsData {
 
     public void setAllomancySnapped(boolean allomancySnapped) {
         this.allomancySnapped = allomancySnapped;
+        if (entity != null) {
+            entity.getCapability(MetalArtsCapabilities.SPIRIT_WEB).ifPresent(web -> {
+                web.setAllomancySnapped(allomancySnapped);
+            });
+        }
         this.markNeedsPowerRefresh();
     }
 
@@ -588,6 +711,14 @@ public class MetalArtsData {
             }
         });
         tag.put("EquippedStrengths", equippedStrengthTag);
+
+        CompoundTag naturalAllomanticStrengthsTag = new CompoundTag();
+        naturalAllomanticStrengths.forEach((metal, strength) -> {
+            if (strength > 0) {
+                naturalAllomanticStrengthsTag.putFloat(metal.id(), strength);
+            }
+        });
+        tag.put("NaturalAllomanticStrengths", naturalAllomanticStrengthsTag);
 
         ListTag spikeList = new ListTag();
         for (InstalledSpike spike : installedSpikes) {
@@ -742,6 +873,14 @@ public class MetalArtsData {
             }
         }
 
+        if (tag.contains("NaturalAllomanticStrengths")) {
+            CompoundTag naturalStrengthTag = tag.getCompound("NaturalAllomanticStrengths");
+            naturalAllomanticStrengths.replaceAll((m, v) -> 0F);
+            for (String key : naturalStrengthTag.getAllKeys()) {
+                Metal.byName(key).ifPresent(m -> naturalAllomanticStrengths.put(m, naturalStrengthTag.getFloat(key)));
+            }
+        }
+
         if (tag.contains("SelectedMetal")) Metal.byName(tag.getString("SelectedMetal")).ifPresent(value -> selectedMetal = value);
         if (tag.contains("Corruption")) corruption = tag.getInt("Corruption");
         if (tag.contains("EquippedSpikeCorruption")) equippedSpikeCorruption = tag.getInt("EquippedSpikeCorruption");
@@ -831,7 +970,7 @@ public class MetalArtsData {
         float base = 0.0F;
 
         if (hasNatural) {
-            base = allomanticStrength + lerasiumBonus
+            base = naturalAllomanticStrengths.getOrDefault(metal, 0.0F) + lerasiumBonus
                     + lerasiumAlloyBonuses.getOrDefault(metal, 0.0F);
         }
 
@@ -914,7 +1053,7 @@ public class MetalArtsData {
         }
     }
 
-    public record InstalledSpike(Metal spikeMetal, String powerType, Metal powerMetal, float strength, int decayTicks, float feruchemicalCharge) {
+    public record InstalledSpike(Metal spikeMetal, String powerType, Metal powerMetal, float strength, int decayTicks, float feruchemicalCharge, String identityKey, CompoundTag stolenSpiritWeb) {
         public CompoundTag serializeNBT() {
             CompoundTag tag = new CompoundTag();
             tag.putString("SpikeMetal", spikeMetal.id());
@@ -923,6 +1062,8 @@ public class MetalArtsData {
             tag.putFloat("Strength", strength);
             tag.putInt("DecayTicks", decayTicks);
             tag.putFloat("FeruchemicalCharge", feruchemicalCharge);
+            tag.putString("IdentityKey", identityKey == null ? "" : identityKey);
+            tag.put("StolenSpiritWeb", stolenSpiritWeb == null ? new CompoundTag() : stolenSpiritWeb);
             return tag;
         }
 
@@ -937,7 +1078,12 @@ public class MetalArtsData {
                 type = "allomancy";
             }
             float charge = tag.contains("FeruchemicalCharge") ? tag.getFloat("FeruchemicalCharge") : 0.0F;
-            return java.util.Optional.of(new InstalledSpike(spikeMetal.get(), type, powerMetal.get(), tag.getFloat("Strength"), tag.getInt("DecayTicks"), charge));
+            String identityKey = tag.getString("IdentityKey");
+            if (identityKey.isBlank()) {
+                identityKey = com.not_noah.mistborn_metal_arts.api.SpiritualAttributes.generateIdentity();
+            }
+            CompoundTag stolenSpiritWeb = tag.contains("StolenSpiritWeb") ? tag.getCompound("StolenSpiritWeb") : new CompoundTag();
+            return java.util.Optional.of(new InstalledSpike(spikeMetal.get(), type, powerMetal.get(), tag.getFloat("Strength"), tag.getInt("DecayTicks"), charge, identityKey, stolenSpiritWeb));
         }
     }
 
@@ -981,11 +1127,27 @@ public class MetalArtsData {
     public boolean stealSpecificPower(Metal metal, String type) {
         if ("feruchemy".equals(type)) {
             if (naturalFeruchemicalPowers.remove(metal)) {
+                if (entity != null) {
+                    entity.getCapability(MetalArtsCapabilities.SPIRIT_WEB).ifPresent(web -> {
+                        com.not_noah.mistborn_metal_arts.api.InvestedArt naturalArt = web.getInvestedSystems().get("feruchemy");
+                        if (naturalArt instanceof com.not_noah.mistborn_metal_arts.api.Feruchemy feruchemy) {
+                            feruchemy.setPower(metal, 0.0F);
+                        }
+                    });
+                }
                 markNeedsPowerRefresh();
                 return true;
             }
         } else {
             if (naturalAllomanticPowers.remove(metal)) {
+                if (entity != null) {
+                    entity.getCapability(MetalArtsCapabilities.SPIRIT_WEB).ifPresent(web -> {
+                        com.not_noah.mistborn_metal_arts.api.InvestedArt naturalArt = web.getInvestedSystems().get("allomancy");
+                        if (naturalArt instanceof com.not_noah.mistborn_metal_arts.api.Allomancy allomancy) {
+                            allomancy.setPower(metal, 0.0F);
+                        }
+                    });
+                }
                 markNeedsPowerRefresh();
                 return true;
             }
@@ -1219,6 +1381,14 @@ public class MetalArtsData {
     public void addNaturalFeruchemicalPower(Metal metal) {
         if (metal.isFeruchemical()) {
             naturalFeruchemicalPowers.add(metal);
+            if (entity != null) {
+                entity.getCapability(MetalArtsCapabilities.SPIRIT_WEB).ifPresent(web -> {
+                    com.not_noah.mistborn_metal_arts.api.InvestedArt naturalArt = web.getInvestedSystems().get("feruchemy");
+                    if (naturalArt instanceof com.not_noah.mistborn_metal_arts.api.Feruchemy feruchemy) {
+                        feruchemy.setPower(metal, 1.0F);
+                    }
+                });
+            }
             markNeedsPowerRefresh();
         }
     }
@@ -1226,6 +1396,16 @@ public class MetalArtsData {
     public void addNaturalAllomanticPower(Metal metal) {
         if (metal.isAllomantic()) {
             naturalAllomanticPowers.add(metal);
+            if (entity != null) {
+                entity.getCapability(MetalArtsCapabilities.SPIRIT_WEB).ifPresent(web -> {
+                    com.not_noah.mistborn_metal_arts.api.InvestedArt naturalArt = web.getInvestedSystems().get("allomancy");
+                    if (naturalArt instanceof com.not_noah.mistborn_metal_arts.api.Allomancy allomancy) {
+                        if (allomancy.getPower(metal) <= 0F) {
+                            allomancy.setPower(metal, 0.5F);
+                        }
+                    }
+                });
+            }
             markNeedsPowerRefresh();
         }
     }

@@ -388,11 +388,17 @@ public final class FeruchemyManager {
         return sources;
     }
 
-    public static boolean isCompounding(MetalArtsData data, Metal metal) {
+    public static boolean isCompounding(LivingEntity entity, MetalArtsData data, Metal metal) {
+        if (entity == null) return false;
+        boolean[] compound = {false};
+        entity.getCapability(MetalArtsCapabilities.SPIRIT_WEB).ifPresent(web -> {
+            compound[0] = web.canCompound(metal);
+        });
         return data.hasAllomanticPower(metal) 
             && data.hasFeruchemicalPower(metal) 
             && data.isBurning(metal) 
-            && data.feruchemyMode(metal) < 0;
+            && data.feruchemyMode(metal) < 0
+            && compound[0];
     }
 
     public static float adjustFallDamage(ServerPlayer player, MetalArtsData data, float damageMultiplier) {
@@ -456,7 +462,7 @@ public final class FeruchemyManager {
 
         float baseRate = ServerConfig.VALUES.feruchemyStoreRate.get().floatValue();
         float rate = baseRate * storeLevel;
-        boolean compounding = isCompounding(data, metal);
+        boolean compounding = isCompounding(player, data, metal);
         if (compounding) {
             rate *= 10.0F;
         }
@@ -625,7 +631,7 @@ public final class FeruchemyManager {
     }
 
     private static void applyStorePenalty(ServerPlayer player, MetalArtsData data, Metal metal, int storeLevel) {
-        if (isCompounding(data, metal)) {
+        if (isCompounding(player, data, metal)) {
             cleanupModifiersAndEffects(player, metal, 1);
             return;
         }

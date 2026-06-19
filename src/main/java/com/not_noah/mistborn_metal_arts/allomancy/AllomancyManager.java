@@ -41,6 +41,9 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.EntityBlock;
 import java.util.UUID;
+import net.minecraft.world.level.pathfinder.Path;
+import net.minecraft.world.level.pathfinder.Node;
+import net.minecraft.world.entity.projectile.Projectile;
 
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -815,6 +818,93 @@ public final class AllomancyManager {
         }
     }
 
+    private static Vec3 predictFuturePosition(Entity entity, float ticks, ServerLevel level) {
+        if (entity instanceof Mob mob) {
+            Path path = mob.getNavigation().getPath();
+            if (path != null && !path.isDone() && mob.onGround()) {
+                // Path-based prediction
+                double speed = new Vec3(mob.getX() - mob.xo, 0.0D, mob.getZ() - mob.zo).length();
+                if (speed < 0.01D) {
+                    // Use base movement speed attribute as fallback if they are about to move
+                    speed = mob.getAttributeValue(Attributes.MOVEMENT_SPEED) * 0.25D;
+                }
+                double targetDistance = speed * ticks;
+                
+                Vec3 currentPos = mob.position();
+                int nextIndex = path.getNextNodeIndex();
+                int count = path.getNodeCount();
+                
+                Vec3 lastPos = currentPos;
+                double accumulatedDistance = 0.0D;
+                
+                for (int i = nextIndex; i < count; i++) {
+                    Node node = path.getNode(i);
+                    Vec3 nodePos = new Vec3(node.x + 0.5D, node.y, node.z + 0.5D);
+                    double dist = lastPos.distanceTo(nodePos);
+                    if (accumulatedDistance + dist >= targetDistance) {
+                        double remaining = targetDistance - accumulatedDistance;
+                        double ratio = remaining / dist;
+                        return lastPos.lerp(nodePos, ratio);
+                    }
+                    accumulatedDistance += dist;
+                    lastPos = nodePos;
+                }
+                return lastPos; // return end of path if target distance is beyond the path
+            }
+        }
+
+        // Physics-based prediction (airborne, no active path, or projectile/other entity)
+        Vec3 simPos = entity.position();
+        
+        // Retrieve original unscaled velocity if entity is currently slowed down inside a dilation
+        Vec3 simVel = entity.getDeltaMovement();
+        net.minecraft.nbt.CompoundTag tag = entity.getPersistentData();
+        if (tag.getBoolean("MA_InsideDilation")) {
+            simVel = new Vec3(
+                    tag.getDouble("MA_OrigVelX"),
+                    tag.getDouble("MA_OrigVelY"),
+                    tag.getDouble("MA_OrigVelZ")
+            );
+        } else if (tag.getBoolean("MA_HasDilationData")) {
+            simVel = new Vec3(
+                    tag.getDouble("MA_DilationVelX"),
+                    tag.getDouble("MA_DilationVelY"),
+                    tag.getDouble("MA_DilationVelZ")
+            );
+        }
+        
+        // If they are standing still on the ground, return current position (no path trail)
+        if (entity.onGround() && simVel.horizontalDistanceSqr() < 0.0001D) {
+            return simPos;
+        }
+        
+        double gravity = 0.08D;
+        double drag = 0.98D;
+        if (entity instanceof Projectile) {
+            gravity = getProjectileGravity(entity);
+            drag = getProjectileDrag(entity);
+        } else if (entity instanceof net.minecraft.world.entity.animal.FlyingAnimal || entity instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragon) {
+            gravity = 0.0D;
+        }
+        
+        int steps = Math.round(ticks);
+        AABB baseBox = entity.getBoundingBox();
+        
+        for (int step = 0; step < steps; step++) {
+            Vec3 nextPos = simPos.add(simVel);
+            // Check collision
+            AABB movedBox = baseBox.move(nextPos.subtract(entity.position()));
+            if (!level.noCollision(entity, movedBox)) {
+                // Collision occurred, stop prediction here
+                break;
+            }
+            simPos = nextPos;
+            // Drag is multiplied by velocity first, then gravity is subtracted, matching Minecraft Vanilla physics exactly
+            simVel = new Vec3(simVel.x * drag, simVel.y * drag - gravity, simVel.z * drag);
+        }
+        return simPos;
+    }
+
     private static void applyAtium(LivingEntity entity, MetalArtsData data, int amplifier) {
         entity.addEffect(new MobEffectInstance(ModEffects.ATIUM_SIGHT.get(), 35, amplifier, false, true));
         entity.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 35, 0, false, false));
@@ -823,44 +913,23 @@ public final class AllomancyManager {
         if (entity.tickCount % 2 == 0) {
             double range = 16D + (amplifier * 8D);
             AABB box = entity.getBoundingBox().inflate(range);
-            for (Mob mob : entity.level().getEntitiesOfClass(Mob.class, box, LivingEntity::isAlive)) {
-                if (mob == entity)
+            for (Entity target : entity.level().getEntitiesOfClass(Entity.class, box, e -> (e instanceof LivingEntity le && le.isAlive() && le != entity) || e instanceof Projectile)) {
+                if (target == entity)
                     continue;
-                mob.addEffect(new MobEffectInstance(MobEffects.GLOWING, 30, 0, false, false));
 
-                if (entity.level() instanceof ServerLevel serverLevel) {
-                    double x = mob.getX();
-                    double y = mob.getY();
-                    double z = mob.getZ();
+                if (target instanceof LivingEntity livingTarget) {
+                    livingTarget.addEffect(new MobEffectInstance(MobEffects.GLOWING, 30, 0, false, false));
+                }
 
-                    // Calculate actual velocity including AI movement
-                    double vx = x - mob.xo;
-                    double vy = y - mob.yo;
-                    double vz = z - mob.zo;
-
-                    // If they are standing still, show shadows in a slight pulse instead
-                    if (Math.abs(vx) < 0.01 && Math.abs(vz) < 0.01) {
-                        double time = (entity.tickCount + mob.getId()) * 0.2;
-                        vx = Math.sin(time) * 0.05;
-                        vz = Math.cos(time) * 0.05;
-                    }
-
-                    // Extrapolate forward. Level 1 (Burning) = ~0.6s, Level 2 (Flaring) = ~1.0s
+                if (entity instanceof ServerPlayer serverPlayer) {
+                    // Precompute future positions at 2 steps: 50% and 100% of prediction ticks
                     float predictionTicks = 12.0F + (amplifier * 8.0F);
-
-                    // Draw 3 shadow points along the predicted path
-                    for (int i = 1; i <= 3; i++) {
-                        float scale = (float) i / 3.0F;
-                        double px = x + (vx * predictionTicks * scale);
-                        double py = y + (vy * predictionTicks * scale);
-                        double pz = z + (vz * predictionTicks * scale);
-
-                        serverLevel.sendParticles(ModParticles.ATIUM_SHADOW.get(), px, py + mob.getBbHeight() * 0.5, pz,
-                                1, 0.1D, 0.2D, 0.1D, 0D);
-                    }
-
-                    // Current position dust
-                    serverLevel.sendParticles(ATIUM_DUST, x, y + mob.getBbHeight() + 0.1D, z, 1, 0.1D, 0.1D, 0.1D, 0D);
+                    Vec3[] positions = new Vec3[2];
+                    positions[0] = predictFuturePosition(target, predictionTicks * 0.5F, (ServerLevel) entity.level());
+                    positions[1] = predictFuturePosition(target, predictionTicks, (ServerLevel) entity.level());
+                    
+                    // Send sync packet to client
+                    com.not_noah.mistborn_metal_arts.network.MetalArtsNetwork.sendAtiumShadows(serverPlayer, target.getId(), positions);
                 }
             }
         }
@@ -1044,43 +1113,197 @@ public final class AllomancyManager {
     }
 
     public static final java.util.List<TimeBubble> ACTIVE_BUBBLES = new java.util.ArrayList<>();
-    public static final java.util.Set<Integer> BUBBLE_AFFECTED_ENTITIES = new java.util.HashSet<>();
+    public static final java.util.Set<Integer> DILATED_ENTITIES = new java.util.HashSet<>();
+    public static final java.util.Map<BlockPos, BlockEntityDilationData> DILATED_BLOCK_ENTITIES = new java.util.HashMap<>();
 
-    private static void saveBubbleState(Entity entity) {
+    private static java.lang.reflect.Field itemAgeField = null;
+    private static java.lang.reflect.Field itemPickupDelayField = null;
+
+    static {
+        try {
+            itemAgeField = net.minecraft.world.entity.item.ItemEntity.class.getDeclaredField("age");
+            itemAgeField.setAccessible(true);
+        } catch (Exception e) {
+            try {
+                itemAgeField = net.minecraft.world.entity.item.ItemEntity.class.getDeclaredField("f_32001_");
+                itemAgeField.setAccessible(true);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
+        try {
+            itemPickupDelayField = net.minecraft.world.entity.item.ItemEntity.class.getDeclaredField("pickupDelay");
+            itemPickupDelayField.setAccessible(true);
+        } catch (Exception e) {
+            try {
+                itemPickupDelayField = net.minecraft.world.entity.item.ItemEntity.class.getDeclaredField("f_32002_");
+                itemPickupDelayField.setAccessible(true);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+
+    public static class BlockEntityDilationData {
+        public double tickCredit = 0.0D;
+        public int lastBurnTime = -1;
+        public int lastCookTime = -1;
+        public int lastBrewTime = -1;
+        public int lastSpawnerDelay = -1;
+        public int lastHopperCooldown = -1;
+        public boolean hasState = false;
+
+        public void saveState(BlockEntity be) {
+            net.minecraft.nbt.CompoundTag tag = be.saveWithoutMetadata();
+            if (tag.contains("BurnTime")) {
+                lastBurnTime = tag.getInt("BurnTime");
+            }
+            if (tag.contains("CookTime")) {
+                lastCookTime = tag.getInt("CookTime");
+            }
+            if (tag.contains("BrewTime")) {
+                lastBrewTime = tag.getInt("BrewTime");
+            }
+            if (tag.contains("Delay")) {
+                lastSpawnerDelay = tag.getInt("Delay");
+            }
+            if (tag.contains("TransferCooldown")) {
+                lastHopperCooldown = tag.getInt("TransferCooldown");
+            }
+            hasState = true;
+        }
+
+        public void restoreState(BlockEntity be) {
+            if (!hasState) {
+                saveState(be);
+                return;
+            }
+            net.minecraft.nbt.CompoundTag tag = be.saveWithoutMetadata();
+            boolean changed = false;
+            if (tag.contains("BurnTime") && lastBurnTime != -1) {
+                tag.putInt("BurnTime", lastBurnTime);
+                changed = true;
+            }
+            if (tag.contains("CookTime") && lastCookTime != -1) {
+                tag.putInt("CookTime", lastCookTime);
+                changed = true;
+            }
+            if (tag.contains("BrewTime") && lastBrewTime != -1) {
+                tag.putInt("BrewTime", lastBrewTime);
+                changed = true;
+            }
+            if (tag.contains("Delay") && lastSpawnerDelay != -1) {
+                tag.putInt("Delay", lastSpawnerDelay);
+                changed = true;
+            }
+            if (tag.contains("TransferCooldown") && lastHopperCooldown != -1) {
+                tag.putInt("TransferCooldown", lastHopperCooldown);
+                changed = true;
+            }
+            if (changed) {
+                be.load(tag);
+                be.setChanged();
+            }
+        }
+    }
+
+    private static void tickSlowedBlockEntity(BlockEntity be, double slowFactor, ServerLevel level) {
+        BlockPos pos = be.getBlockPos();
+        BlockEntityDilationData data = DILATED_BLOCK_ENTITIES.computeIfAbsent(pos, p -> new BlockEntityDilationData());
+        data.tickCredit += 1.0D / slowFactor;
+        if (data.tickCredit >= 1.0D) {
+            data.tickCredit -= 1.0D;
+            data.saveState(be);
+        } else {
+            data.restoreState(be);
+        }
+    }
+
+    public static double getSlowFactorAt(ServerLevel level, BlockPos pos) {
+        double maxSlowFactor = 1.0D;
+        boolean insideAnyBendalloy = false;
+        
+        for (TimeBubble bubble : ACTIVE_BUBBLES) {
+            if (bubble.owner.level() != level || bubble.type != Metal.BENDALLOY)
+                continue;
+            double cx = bubble.center.getX() + 0.5D;
+            double cy = bubble.center.getY() + 0.5D;
+            double cz = bubble.center.getZ() + 0.5D;
+            double rSqr = bubble.getRadius() * bubble.getRadius();
+            if (pos.distToCenterSqr(cx, cy, cz) <= rSqr) {
+                insideAnyBendalloy = true;
+                break;
+            }
+        }
+        
+        if (insideAnyBendalloy) {
+            return 1.0D;
+        }
+
+        for (TimeBubble bubble : ACTIVE_BUBBLES) {
+            if (bubble.owner.level() != level || bubble.type != Metal.BENDALLOY)
+                continue;
+
+            double cx = bubble.center.getX() + 0.5D;
+            double cy = bubble.center.getY() + 0.5D;
+            double cz = bubble.center.getZ() + 0.5D;
+            double scanRange = bubble.getRadius() + ServerConfig.VALUES.maxAffectedDistanceOutsideBubble.get();
+            double distSqr = pos.distToCenterSqr(cx, cy, cz);
+            if (distSqr > bubble.getRadius() * bubble.getRadius() && distSqr <= scanRange * scanRange) {
+                float strength = bubble.owner.getCapability(MetalArtsCapabilities.METAL_ARTS)
+                        .map(d -> d.getEffectiveStrength(bubble.type)).orElse(1.0F);
+                boolean isFlaring = bubble.owner.getCapability(MetalArtsCapabilities.METAL_ARTS)
+                        .map(d -> d.isFlaring(bubble.type)).orElse(false);
+                
+                double baseFactor = ServerConfig.VALUES.baseBendalloySlowFactor.get();
+                double flareMultiplier = isFlaring ? ServerConfig.VALUES.bendalloyFlareMultiplier.get() : 1.0D;
+                double maxSlow = ServerConfig.VALUES.maxBendalloySlowFactor.get();
+                double slowFactor = baseFactor * strength * flareMultiplier;
+                slowFactor = Math.max(1.0D, Math.min(maxSlow, slowFactor));
+                
+                if (slowFactor > maxSlowFactor) {
+                    maxSlowFactor = slowFactor;
+                }
+            }
+        }
+        return maxSlowFactor;
+    }
+
+    private static void saveDilationState(Entity entity) {
         net.minecraft.nbt.CompoundTag data = entity.getPersistentData();
         Vec3 pos = entity.position();
         Vec3 vel = entity.getDeltaMovement();
-        data.putDouble("MA_BubblePosX", pos.x);
-        data.putDouble("MA_BubblePosY", pos.y);
-        data.putDouble("MA_BubblePosZ", pos.z);
-        data.putDouble("MA_BubbleVelX", vel.x);
-        data.putDouble("MA_BubbleVelY", vel.y);
-        data.putDouble("MA_BubbleVelZ", vel.z);
-        data.putBoolean("MA_HasBubbleData", true);
+        data.putDouble("MA_DilationPosX", pos.x);
+        data.putDouble("MA_DilationPosY", pos.y);
+        data.putDouble("MA_DilationPosZ", pos.z);
+        data.putDouble("MA_DilationVelX", vel.x);
+        data.putDouble("MA_DilationVelY", vel.y);
+        data.putDouble("MA_DilationVelZ", vel.z);
+        data.putBoolean("MA_HasDilationData", true);
     }
 
-    private static void restoreBubbleState(Entity entity) {
+    private static void restoreDilationState(Entity entity, double slowFactor) {
         net.minecraft.nbt.CompoundTag data = entity.getPersistentData();
-        if (!data.getBoolean("MA_HasBubbleData")) {
-            saveBubbleState(entity);
+        if (!data.getBoolean("MA_HasDilationData")) {
+            saveDilationState(entity);
             return;
         }
-        double px = data.getDouble("MA_BubblePosX");
-        double py = data.getDouble("MA_BubblePosY");
-        double pz = data.getDouble("MA_BubblePosZ");
-        double vx = data.getDouble("MA_BubbleVelX");
-        double vy = data.getDouble("MA_BubbleVelY");
-        double vz = data.getDouble("MA_BubbleVelZ");
+        double px = data.getDouble("MA_DilationPosX");
+        double py = data.getDouble("MA_DilationPosY");
+        double pz = data.getDouble("MA_DilationPosZ");
+        double vx = data.getDouble("MA_DilationVelX");
+        double vy = data.getDouble("MA_DilationVelY");
+        double vz = data.getDouble("MA_DilationVelZ");
+
+        double speedFactor = 1.0D / slowFactor;
 
         entity.setPos(px, py, pz);
-        entity.setDeltaMovement(new Vec3(vx, vy, vz));
+        entity.setDeltaMovement(new Vec3(vx * speedFactor, vy * speedFactor, vz * speedFactor));
         entity.fallDistance = 0.0F;
 
         if (entity.level() instanceof ServerLevel serverLevel) {
             serverLevel.getChunkSource().broadcast(entity,
                     new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(entity));
-            serverLevel.getChunkSource().broadcast(entity,
-                    new net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket(entity));
         }
     }
 
@@ -1092,16 +1315,10 @@ public final class AllomancyManager {
 
         Set<LivingEntity> insideBendalloy = new HashSet<>();
         Set<LivingEntity> insideCadmium = new HashSet<>();
-        Set<LivingEntity> outsideBendalloy = new HashSet<>();
-        Set<LivingEntity> outsideCadmium = new HashSet<>();
-        Set<LivingEntity> allEntities = new HashSet<>();
-        Set<Entity> nonLivingOutsideBendalloy = new HashSet<>();
-        Set<Entity> nonLivingOutsideCadmium = new HashSet<>();
-        Set<Entity> allScannedEntities = new HashSet<>();
 
-        // Maps to track dilation factors per entity based on the bubbles affecting them
-        Map<Entity, Integer> entityBendalloyIntervals = new HashMap<>();
-        Map<Entity, Integer> entityCadmiumExtraTicks = new HashMap<>();
+        // Generic maps to track dilation factors per entity
+        Map<Entity, Double> entitySlowFactors = new HashMap<>();
+        Map<Entity, Integer> entityExtraTicks = new HashMap<>();
 
         // Map to track block entity speedups
         Map<BlockEntity, Integer> blockEntityExtraTicks = new HashMap<>();
@@ -1121,52 +1338,46 @@ public final class AllomancyManager {
                     .map(d -> d.isFlaring(bubble.type)).orElse(false);
             float flareMult = isFlaring ? 1.5F : 1.0F;
 
-            int bendalloyInterval;
+            double slowFactor = 1.0D;
             if (bubble.type == Metal.BENDALLOY) {
-                // Exponential scaling: at base x = 1.0 (standard strength, not flaring),
-                // interval is 4.
-                // At x = 4.5 (max strength 3.0 * flare 1.5), interval is 4 * 4^3.5 = 512, which
-                // basically stops time.
-                float x = strength * flareMult;
-                bendalloyInterval = Math.max(2, Math.round(4.0F * (float) Math.pow(4.0D, x - 1.0D)));
-            } else {
-                bendalloyInterval = Math.max(2, Math.round(4.0F * strength * flareMult));
+                double baseFactor = ServerConfig.VALUES.baseBendalloySlowFactor.get();
+                double flareMultiplier = isFlaring ? ServerConfig.VALUES.bendalloyFlareMultiplier.get() : 1.0D;
+                double maxSlowFactor = ServerConfig.VALUES.maxBendalloySlowFactor.get();
+                slowFactor = baseFactor * strength * flareMultiplier;
+                slowFactor = Math.max(1.0D, Math.min(maxSlowFactor, slowFactor));
             }
             int cadmiumExtraTicks = Math.max(1, Math.round(3.0F * strength * flareMult));
 
-            AABB scanArea = new AABB(cx - 64, cy - 64, cz - 64, cx + 64, cy + 64, cz + 64);
+            double scanRange = bubble.type == Metal.BENDALLOY 
+                    ? bubble.getRadius() + ServerConfig.VALUES.maxAffectedDistanceOutsideBubble.get()
+                    : 64.0D;
+            AABB scanArea = new AABB(cx - scanRange, cy - scanRange, cz - scanRange, cx + scanRange, cy + scanRange, cz + scanRange);
             List<Entity> entities = level.getEntities((Entity) null, scanArea, Entity::isAlive);
 
             for (Entity entity : entities) {
-                allScannedEntities.add(entity);
                 double distSqr = entity.distanceToSqr(cx, cy, cz);
                 if (entity instanceof LivingEntity living) {
-                    allEntities.add(living);
                     if (bubble.type == Metal.BENDALLOY) {
                         if (distSqr <= rSqr) {
                             insideBendalloy.add(living);
-                        } else if (distSqr <= 64.0D * 64.0D) {
-                            outsideBendalloy.add(living);
-                            entityBendalloyIntervals.merge(living, bendalloyInterval, Math::max);
+                        } else if (distSqr <= scanRange * scanRange) {
+                            entitySlowFactors.merge(living, slowFactor, Math::max);
                         }
                     } else if (bubble.type == Metal.CADMIUM) {
                         if (distSqr <= rSqr) {
                             insideCadmium.add(living);
                         } else if (distSqr <= 64.0D * 64.0D) {
-                            outsideCadmium.add(living);
-                            entityCadmiumExtraTicks.merge(living, cadmiumExtraTicks, Math::max);
+                            entityExtraTicks.merge(living, cadmiumExtraTicks, Math::max);
                         }
                     }
                 } else {
                     if (bubble.type == Metal.BENDALLOY) {
-                        if (distSqr > rSqr && distSqr <= 64.0D * 64.0D) {
-                            nonLivingOutsideBendalloy.add(entity);
-                            entityBendalloyIntervals.merge(entity, bendalloyInterval, Math::max);
+                        if (distSqr > rSqr && distSqr <= scanRange * scanRange) {
+                            entitySlowFactors.merge(entity, slowFactor, Math::max);
                         }
                     } else if (bubble.type == Metal.CADMIUM) {
                         if (distSqr > rSqr && distSqr <= 64.0D * 64.0D) {
-                            nonLivingOutsideCadmium.add(entity);
-                            entityCadmiumExtraTicks.merge(entity, cadmiumExtraTicks, Math::max);
+                            entityExtraTicks.merge(entity, cadmiumExtraTicks, Math::max);
                         }
                     }
                 }
@@ -1200,59 +1411,90 @@ public final class AllomancyManager {
             }
         }
 
-        // Clean up: entities inside a bubble cannot be considered outside one of the
-        // same type
+        // Global Atium Dilation: scan for active Atium burners in the level
+        Set<Player> atiumBurners = new HashSet<>();
+        double maxAtiumSlowFactor = 1.0D;
+        for (ServerPlayer player : level.players()) {
+            boolean isBurning = player.getCapability(MetalArtsCapabilities.METAL_ARTS)
+                    .map(d -> d.isBurning(Metal.ATIUM) && d.getReserve(Metal.ATIUM) > 0F)
+                    .orElse(false);
+            if (isBurning) {
+                atiumBurners.add(player);
+                float strength = player.getCapability(MetalArtsCapabilities.METAL_ARTS)
+                        .map(d -> d.getEffectiveStrength(Metal.ATIUM)).orElse(1.0F);
+                boolean isFlaring = player.getCapability(MetalArtsCapabilities.METAL_ARTS)
+                        .map(d -> d.isFlaring(Metal.ATIUM)).orElse(false);
+                double slowFactor = 1.35D + (strength * 0.1D) + (isFlaring ? 0.3D : 0.0D);
+                if (slowFactor > maxAtiumSlowFactor) {
+                    maxAtiumSlowFactor = slowFactor;
+                }
+            }
+        }
+
+        if (maxAtiumSlowFactor > 1.0D) {
+            Set<Entity> levelEntities = new HashSet<>();
+            for (ServerPlayer player : level.players()) {
+                AABB area = player.getBoundingBox().inflate(128.0D);
+                levelEntities.addAll(level.getEntities((Entity) null, area, Entity::isAlive));
+            }
+            
+            for (Entity entity : levelEntities) {
+                if (atiumBurners.contains(entity)) {
+                    continue; // Atium burners are immune to global Atium slowdown
+                }
+                
+                if (entity instanceof LivingEntity living) {
+                    entitySlowFactors.merge(living, maxAtiumSlowFactor, Math::max);
+                } else {
+                    entitySlowFactors.merge(entity, maxAtiumSlowFactor, Math::max);
+                }
+            }
+        }
+
+        // Clean up: entities inside a bubble cannot be considered outside one of the same type
         for (LivingEntity living : insideBendalloy) {
-            outsideBendalloy.remove(living);
-            entityBendalloyIntervals.remove(living);
+            entitySlowFactors.remove(living);
         }
         for (LivingEntity living : insideCadmium) {
-            outsideCadmium.remove(living);
-            entityCadmiumExtraTicks.remove(living);
+            entityExtraTicks.remove(living);
         }
 
-        // Cancellation: inside overlap cancels inside effects
-        Set<LivingEntity> insideOverlap = new HashSet<>(insideBendalloy);
-        insideOverlap.retainAll(insideCadmium);
-        insideBendalloy.removeAll(insideOverlap);
-        insideCadmium.removeAll(insideOverlap);
-
-        // Clean up outside overlap:
-        Set<Entity> outsideOverlap = new HashSet<>(entityBendalloyIntervals.keySet());
-        outsideOverlap.retainAll(entityCadmiumExtraTicks.keySet());
-        for (Entity entity : outsideOverlap) {
-            entityBendalloyIntervals.remove(entity);
-            entityCadmiumExtraTicks.remove(entity);
+        // Cancellation: if an entity is affected by both slowdown and speedup, they cancel out
+        Set<Entity> overlap = new HashSet<>(entitySlowFactors.keySet());
+        overlap.retainAll(entityExtraTicks.keySet());
+        for (Entity entity : overlap) {
+            entitySlowFactors.remove(entity);
+            entityExtraTicks.remove(entity);
         }
 
         Set<LivingEntity> toAccelerate = new HashSet<>();
         Set<LivingEntity> toFreeze = new HashSet<>();
         Set<Entity> slowedDownEntities = new HashSet<>();
 
-        for (LivingEntity entity : allEntities) {
-            if (insideBendalloy.contains(entity) || insideCadmium.contains(entity)) {
-                // Inside is unaffected (normal speed)
-                continue;
-            }
-
-            if (entityCadmiumExtraTicks.containsKey(entity)) {
-                // entity.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 10, 1,
-                // false, false));
-                entity.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, 10, 1, false, false));
-                if (!(entity instanceof Player)) {
-                    toAccelerate.add(entity);
+        // Populate acceleration list
+        for (Entity entity : entityExtraTicks.keySet()) {
+            if (entity instanceof LivingEntity living) {
+                living.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, 10, 1, false, false));
+                if (!(living instanceof Player)) {
+                    toAccelerate.add(living);
                 }
-            } else if (entityBendalloyIntervals.containsKey(entity)) {
-                // entity.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 10, 3,
-                // false, false));
-                entity.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, 10, 3, false, false));
-                toFreeze.add(entity);
+            }
+        }
+
+        // Populate freeze list
+        for (Entity entity : entitySlowFactors.keySet()) {
+            if (entity instanceof LivingEntity living) {
+                if (living instanceof Player && !ServerConfig.VALUES.affectOtherPlayers.get()) {
+                    continue;
+                }
+                living.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, 10, 3, false, false));
+                toFreeze.add(living);
             }
         }
 
         // Perform entity tick acceleration safely
         for (LivingEntity entity : toAccelerate) {
-            int extraTicks = entityCadmiumExtraTicks.getOrDefault(entity, 3);
+            int extraTicks = entityExtraTicks.getOrDefault(entity, 3);
             for (int i = 0; i < extraTicks; i++) {
                 entity.tick();
             }
@@ -1261,78 +1503,167 @@ public final class AllomancyManager {
         // Perform entity slowness freezing safely
         for (LivingEntity entity : toFreeze) {
             slowedDownEntities.add(entity);
-            int interval = entityBendalloyIntervals.getOrDefault(entity, 4);
-            if (level.getGameTime() % interval != 0) {
-                restoreBubbleState(entity);
+            DILATED_ENTITIES.add(entity.getId());
+            double slowFactor = entitySlowFactors.getOrDefault(entity, 8.0D);
+            net.minecraft.nbt.CompoundTag tag = entity.getPersistentData();
+            
+            if (!tag.getBoolean("MA_HasDilationData")) {
+                saveDilationState(entity);
+                tag.putDouble("MA_DilationTickCredit", 0.0D);
+                tag.putBoolean("MA_WasSkipped", false);
+            }
+            
+            double tickCredit = tag.getDouble("MA_DilationTickCredit");
+            tickCredit += 1.0D / slowFactor;
+            
+            boolean isHurt = entity.hurtTime > 0;
+            boolean savedHurt = tag.getBoolean("MA_SavedHurt");
+            if (isHurt && !savedHurt) {
+                saveDilationState(entity);
+                tag.putBoolean("MA_SavedHurt", true);
+            } else if (!isHurt && savedHurt) {
+                tag.putBoolean("MA_SavedHurt", false);
+            }
+            
+            boolean wasSkipped = tag.getBoolean("MA_WasSkipped");
+            
+            if (tickCredit >= 1.0D) {
+                // Next tick is active
+                tickCredit -= 1.0D;
+                tag.putDouble("MA_DilationTickCredit", tickCredit);
+                tag.putBoolean("MA_WasSkipped", false);
+                
+                if (wasSkipped) {
+                    // Current tick was skipped, so we need to restore the original unscaled velocity for the next (active) tick
+                    double vx = tag.getDouble("MA_DilationVelX");
+                    double vy = tag.getDouble("MA_DilationVelY");
+                    double vz = tag.getDouble("MA_DilationVelZ");
+                    entity.setDeltaMovement(new Vec3(vx, vy, vz));
+                } else {
+                    // Current tick was active, so we save the new position and velocity as the reference
+                    saveDilationState(entity);
+                }
             } else {
-                saveBubbleState(entity);
+                // Next tick is skipped
+                tag.putDouble("MA_DilationTickCredit", tickCredit);
+                tag.putBoolean("MA_WasSkipped", true);
+                
+                if (wasSkipped) {
+                    // Current tick was skipped. We restore the reference position, and keep the velocity scaled down.
+                    restoreDilationState(entity, slowFactor);
+                } else {
+                    // Current tick was active. We save the reference position/velocity, and then scale down the velocity.
+                    saveDilationState(entity);
+                    double vx = tag.getDouble("MA_DilationVelX");
+                    double vy = tag.getDouble("MA_DilationVelY");
+                    double vz = tag.getDouble("MA_DilationVelZ");
+                    double speedFactor = 1.0D / slowFactor;
+                    entity.setDeltaMovement(new Vec3(vx * speedFactor, vy * speedFactor, vz * speedFactor));
+                    if (entity.level() instanceof ServerLevel serverLevel) {
+                        serverLevel.getChunkSource().broadcast(entity,
+                                new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(entity));
+                    }
+                }
             }
         }
 
-        // Handle Non-Living Entities (arrows, items, projectiles) smoothly via velocity
-        // scaling:
-        for (Map.Entry<Entity, Integer> entry : entityBendalloyIntervals.entrySet()) {
+        // Handle Non-Living Entities (arrows, items, projectiles) smoothly via velocity scaling:
+        for (Map.Entry<Entity, Double> entry : entitySlowFactors.entrySet()) {
             Entity entity = entry.getKey();
             if (entity instanceof LivingEntity)
                 continue; // already handled above
 
             slowedDownEntities.add(entity);
-            BUBBLE_AFFECTED_ENTITIES.add(entity.getId());
-            int interval = entry.getValue();
-            double speedFactor = 1.0D / interval;
+            DILATED_ENTITIES.add(entity.getId());
+            double slowFactor = entry.getValue();
+            double speedFactor = 1.0D / slowFactor;
 
             net.minecraft.nbt.CompoundTag tag = entity.getPersistentData();
-            if (!tag.getBoolean("MA_InsideBubble")) {
-                // First tick entering the bubble: scale the current velocity
-                Vec3 currentVel = entity.getDeltaMovement();
-                Vec3 scaledVel = currentVel.scale(speedFactor);
-                entity.setDeltaMovement(scaledVel);
-                tag.putDouble("MA_LastVelX", scaledVel.x);
-                tag.putDouble("MA_LastVelY", scaledVel.y);
-                tag.putDouble("MA_LastVelZ", scaledVel.z);
-                tag.putBoolean("MA_InsideBubble", true);
+            
+            // Get or initialize original unscaled velocity
+            Vec3 originalVel;
+            if (!tag.getBoolean("MA_InsideDilation")) {
+                originalVel = entity.getDeltaMovement();
+                tag.putDouble("MA_OrigVelX", originalVel.x);
+                tag.putDouble("MA_OrigVelY", originalVel.y);
+                tag.putDouble("MA_OrigVelZ", originalVel.z);
+                tag.putBoolean("MA_InsideDilation", true);
                 tag.putDouble("MA_AppliedSpeedFactor", speedFactor);
-                BUBBLE_AFFECTED_ENTITIES.add(entity.getId());
+                tag.putDouble("MA_DilationTickCredit", 0.0D);
 
-                // Sync to client
-                if (entity.level() instanceof ServerLevel serverLevel) {
-                    serverLevel.getChunkSource().broadcast(entity,
-                            new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(entity));
+                // Pull back position to prevent transition jump/pop
+                if (entity.tickCount > 0 && (entity.xo != 0.0D || entity.yo != 0.0D || entity.zo != 0.0D)) {
+                    double dx = entity.getX() - entity.xo;
+                    double dy = entity.getY() - entity.yo;
+                    double dz = entity.getZ() - entity.zo;
+                    entity.setPos(entity.xo + dx * speedFactor, entity.yo + dy * speedFactor, entity.zo + dz * speedFactor);
+                    if (entity.level() instanceof ServerLevel serverLevel) {
+                        serverLevel.getChunkSource().broadcast(entity,
+                                new net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket(entity));
+                    }
                 }
             } else {
-                // Subsequent ticks: apply the time dilation formula to update velocity smoothly
-                Vec3 oldVel = new Vec3(
-                        tag.getDouble("MA_LastVelX"),
-                        tag.getDouble("MA_LastVelY"),
-                        tag.getDouble("MA_LastVelZ"));
-                Vec3 tickVel = entity.getDeltaMovement();
+                originalVel = new Vec3(
+                        tag.getDouble("MA_OrigVelX"),
+                        tag.getDouble("MA_OrigVelY"),
+                        tag.getDouble("MA_OrigVelZ")
+                );
+            }
 
-                // Calculate desired velocity: V_desired = V_old * (1 - speedFactor) + V_tick *
-                // speedFactor
-                Vec3 desiredVel = oldVel.scale(1.0D - speedFactor).add(tickVel.scale(speedFactor));
+            // Apply smooth fractional gravity and drag step on every tick
+            double gravity = getProjectileGravity(entity);
+            double drag = getProjectileDrag(entity);
+            double dragFactor = 1.0D - (1.0D - drag) * speedFactor;
+            double newY = (originalVel.y - gravity * speedFactor) * dragFactor;
+            originalVel = new Vec3(originalVel.x * dragFactor, newY, originalVel.z * dragFactor);
+            tag.putDouble("MA_OrigVelX", originalVel.x);
+            tag.putDouble("MA_OrigVelY", originalVel.y);
+            tag.putDouble("MA_OrigVelZ", originalVel.z);
 
-                // Adjust for gravity dilation difference to preserve spatial trajectory under
-                // slowdown (gravity scales with speedFactor^2)
-                double gravity = getProjectileGravity(entity);
-                double gravityAdjustment = gravity * speedFactor * (1.0D - speedFactor);
-                desiredVel = desiredVel.add(0.0D, gravityAdjustment, 0.0D);
+            // Update tick credit accumulator for other timers (like TNT fuse, Item age)
+            double credit = tag.getDouble("MA_DilationTickCredit");
+            credit += speedFactor;
+            boolean didPhysicsTick = false;
+            if (credit >= 1.0D) {
+                credit -= 1.0D;
+                didPhysicsTick = true;
+            }
+            tag.putDouble("MA_DilationTickCredit", credit);
 
-                // Store and set
-                entity.setDeltaMovement(desiredVel);
-                tag.putDouble("MA_LastVelX", desiredVel.x);
-                tag.putDouble("MA_LastVelY", desiredVel.y);
-                tag.putDouble("MA_LastVelZ", desiredVel.z);
-                tag.putDouble("MA_AppliedSpeedFactor", speedFactor);
+            // Set actual scaled velocity for the entity to move by during next tick
+            Vec3 scaledVel = originalVel.scale(speedFactor);
+            entity.setDeltaMovement(scaledVel);
 
-                // Sync to client
-                if (entity.level() instanceof ServerLevel serverLevel) {
-                    serverLevel.getChunkSource().broadcast(entity,
-                            new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(entity));
+            // Sync to client
+            if (entity.level() instanceof ServerLevel serverLevel) {
+                serverLevel.getChunkSource().broadcast(entity,
+                        new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(entity));
+            }
+
+            // Apply stateless timer adjustments for ItemEntity and PrimedTnt based on tick credit
+            if (!didPhysicsTick) {
+                if (entity instanceof net.minecraft.world.entity.item.ItemEntity item) {
+                    try {
+                        if (itemAgeField != null) {
+                            int age = itemAgeField.getInt(item);
+                            itemAgeField.setInt(item, age - 1);
+                        }
+                        if (itemPickupDelayField != null) {
+                            int delay = itemPickupDelayField.getInt(item);
+                            if (delay > 0) {
+                                itemPickupDelayField.setInt(item, delay + 1);
+                            }
+                        }
+                    } catch (Exception e) {
+                        // ignore
+                    }
+                } else if (entity instanceof net.minecraft.world.entity.item.PrimedTnt tnt) {
+                    tnt.setFuse(tnt.getFuse() + 1);
                 }
             }
         }
 
-        for (Map.Entry<Entity, Integer> entry : entityCadmiumExtraTicks.entrySet()) {
+        for (Map.Entry<Entity, Integer> entry : entityExtraTicks.entrySet()) {
             Entity entity = entry.getKey();
             if (entity instanceof LivingEntity)
                 continue; // already handled above
@@ -1349,9 +1680,8 @@ public final class AllomancyManager {
             }
         }
 
-        // Clean up bubble tag for entities that are no longer affected (even if the
-        // bubble was deactivated)
-        java.util.Iterator<Integer> iterator = BUBBLE_AFFECTED_ENTITIES.iterator();
+        // Clean up bubble tag for entities that are no longer affected (even if the bubble was deactivated)
+        java.util.Iterator<Integer> iterator = DILATED_ENTITIES.iterator();
         while (iterator.hasNext()) {
             int entityId = iterator.next();
             Entity entity = level.getEntity(entityId);
@@ -1361,41 +1691,83 @@ public final class AllomancyManager {
             }
             if (!slowedDownEntities.contains(entity)) {
                 net.minecraft.nbt.CompoundTag tag = entity.getPersistentData();
-                if (tag.getBoolean("MA_InsideBubble")) {
-                    // Restore original velocity upon leaving
-                    double appliedFactor = tag.getDouble("MA_AppliedSpeedFactor");
-                    Vec3 currentVel = entity.getDeltaMovement();
-                    if (appliedFactor > 0.0D && currentVel.lengthSqr() >= 0.0001D) {
-                        double gravity = getProjectileGravity(entity);
-                        double drag = getProjectileDrag(entity);
-                        Vec3 restoredVel = currentVel.scale(1.0D / appliedFactor);
-                        double gravityCorrection = gravity * drag * (1.0D / appliedFactor - 1.0D);
-                        restoredVel = restoredVel.add(0.0D, gravityCorrection, 0.0D);
-                        entity.setDeltaMovement(restoredVel);
+                if (tag.getBoolean("MA_InsideDilation")) {
+                    // Restore original unscaled velocity upon leaving
+                    Vec3 originalVel = new Vec3(
+                            tag.getDouble("MA_OrigVelX"),
+                            tag.getDouble("MA_OrigVelY"),
+                            tag.getDouble("MA_OrigVelZ")
+                    );
+                    if (originalVel.lengthSqr() >= 0.0001D) {
+                        entity.setDeltaMovement(originalVel);
+                        if (entity.level() instanceof ServerLevel serverLevel) {
+                            serverLevel.getChunkSource().broadcast(entity,
+                                    new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(entity));
+                        }
+
+                        // Push forward position to compensate for the last slowed tick
+                        double appliedFactor = tag.getDouble("MA_AppliedSpeedFactor");
+                        if (appliedFactor > 0.0D && entity.tickCount > 0 && (entity.xo != 0.0D || entity.yo != 0.0D || entity.zo != 0.0D)) {
+                            double dx = entity.getX() - entity.xo;
+                            double dy = entity.getY() - entity.yo;
+                            double dz = entity.getZ() - entity.zo;
+                            double factor = 1.0D / appliedFactor;
+                            double maxPush = 5.0D;
+                            double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                            if (distance > 0.001D) {
+                                double pushFactor = Math.min(factor, maxPush / distance);
+                                entity.setPos(entity.xo + dx * pushFactor, entity.yo + dy * pushFactor, entity.zo + dz * pushFactor);
+                            }
+                            if (entity.level() instanceof ServerLevel serverLevel) {
+                                serverLevel.getChunkSource().broadcast(entity,
+                                        new net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket(entity));
+                            }
+                        }
+                    }
+                    tag.remove("MA_InsideDilation");
+                    tag.remove("MA_OrigVelX");
+                    tag.remove("MA_OrigVelY");
+                    tag.remove("MA_OrigVelZ");
+                    tag.remove("MA_AppliedSpeedFactor");
+                    tag.remove("MA_DilationTickCredit");
+                }
+                
+                // Living entity cleanup
+                if (tag.getBoolean("MA_HasDilationData")) {
+                    if (tag.getBoolean("MA_WasSkipped")) {
+                        double vx = tag.getDouble("MA_DilationVelX");
+                        double vy = tag.getDouble("MA_DilationVelY");
+                        double vz = tag.getDouble("MA_DilationVelZ");
+                        entity.setDeltaMovement(new Vec3(vx, vy, vz));
                         if (entity.level() instanceof ServerLevel serverLevel) {
                             serverLevel.getChunkSource().broadcast(entity,
                                     new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(entity));
                         }
                     }
-                    tag.remove("MA_InsideBubble");
-                    tag.remove("MA_LastVelX");
-                    tag.remove("MA_LastVelY");
-                    tag.remove("MA_LastVelZ");
-                    tag.remove("MA_AppliedSpeedFactor");
+                    tag.remove("MA_HasDilationData");
+                    tag.remove("MA_WasSkipped");
+                    tag.remove("MA_DilationTickCredit");
+                    tag.remove("MA_DilationPosX");
+                    tag.remove("MA_DilationPosY");
+                    tag.remove("MA_DilationPosZ");
+                    tag.remove("MA_DilationVelX");
+                    tag.remove("MA_DilationVelY");
+                    tag.remove("MA_DilationVelZ");
+                    tag.remove("MA_SavedHurt");
                 }
-                entity.getPersistentData().remove("MA_HasBubbleData");
                 iterator.remove();
             }
         }
 
-        // Find and accelerate Block Entities outside Cadmium bubbles (within 32 blocks)
+        // Find and handle Block Entities outside bubbles
         Set<BlockEntity> insideCadmiumBlocks = new HashSet<>();
         Set<BlockEntity> outsideCadmiumBlocks = new HashSet<>();
+        Set<BlockEntity> insideBendalloyBlocks = new HashSet<>();
+        Set<BlockEntity> outsideBendalloyBlocks = new HashSet<>();
+        Map<BlockEntity, Double> blockEntitySlowFactors = new HashMap<>();
 
         for (TimeBubble bubble : ACTIVE_BUBBLES) {
             if (bubble.owner.level() != level)
-                continue;
-            if (bubble.type != Metal.CADMIUM)
                 continue;
 
             double cx = bubble.center.getX() + 0.5D;
@@ -1403,19 +1775,31 @@ public final class AllomancyManager {
             double cz = bubble.center.getZ() + 0.5D;
             double rSqr = bubble.getRadius() * bubble.getRadius();
 
-            // Calculate extra ticks for block entities
+            // Calculate factors
             float strength = bubble.owner.getCapability(MetalArtsCapabilities.METAL_ARTS)
                     .map(d -> d.getEffectiveStrength(bubble.type)).orElse(1.0F);
             boolean isFlaring = bubble.owner.getCapability(MetalArtsCapabilities.METAL_ARTS)
                     .map(d -> d.isFlaring(bubble.type)).orElse(false);
             float flareMult = isFlaring ? 1.5F : 1.0F;
+
+            double slowFactor = 1.0D;
+            if (bubble.type == Metal.BENDALLOY) {
+                double baseFactor = ServerConfig.VALUES.baseBendalloySlowFactor.get();
+                double flareMultiplier = isFlaring ? ServerConfig.VALUES.bendalloyFlareMultiplier.get() : 1.0D;
+                double maxSlowFactor = ServerConfig.VALUES.maxBendalloySlowFactor.get();
+                slowFactor = baseFactor * strength * flareMultiplier;
+                slowFactor = Math.max(1.0D, Math.min(maxSlowFactor, slowFactor));
+            }
             int cadmiumExtraTicks = Math.max(1, Math.round(3.0F * strength * flareMult));
 
-            int scanRange = 32;
-            int minChunkX = ((int) cx - scanRange) >> 4;
-            int maxChunkX = ((int) cx + scanRange) >> 4;
-            int minChunkZ = ((int) cz - scanRange) >> 4;
-            int maxChunkZ = ((int) cz + scanRange) >> 4;
+            double scanRange = bubble.type == Metal.BENDALLOY 
+                    ? bubble.getRadius() + ServerConfig.VALUES.maxAffectedDistanceOutsideBubble.get()
+                    : 32.0D;
+
+            int minChunkX = ((int) cx - (int) scanRange) >> 4;
+            int maxChunkX = ((int) cx + (int) scanRange) >> 4;
+            int minChunkZ = ((int) cz - (int) scanRange) >> 4;
+            int maxChunkZ = ((int) cz + (int) scanRange) >> 4;
 
             for (int cxChunk = minChunkX; cxChunk <= maxChunkX; cxChunk++) {
                 for (int czChunk = minChunkZ; czChunk <= maxChunkZ; czChunk++) {
@@ -1428,11 +1812,20 @@ public final class AllomancyManager {
                                 continue;
 
                             double distSqr = pos.distToCenterSqr(cx, cy, cz);
-                            if (distSqr <= rSqr) {
-                                insideCadmiumBlocks.add(be);
-                            } else if (distSqr <= (double) (scanRange * scanRange)) {
-                                outsideCadmiumBlocks.add(be);
-                                blockEntityExtraTicks.merge(be, cadmiumExtraTicks, Math::max);
+                            if (bubble.type == Metal.CADMIUM) {
+                                if (distSqr <= rSqr) {
+                                    insideCadmiumBlocks.add(be);
+                                } else if (distSqr <= (double) (scanRange * scanRange)) {
+                                    outsideCadmiumBlocks.add(be);
+                                    blockEntityExtraTicks.merge(be, cadmiumExtraTicks, Math::max);
+                                }
+                            } else if (bubble.type == Metal.BENDALLOY) {
+                                if (distSqr <= rSqr) {
+                                    insideBendalloyBlocks.add(be);
+                                } else if (distSqr <= (double) (scanRange * scanRange)) {
+                                    outsideBendalloyBlocks.add(be);
+                                    blockEntitySlowFactors.merge(be, slowFactor, Math::max);
+                                }
                             }
                         }
                     }
@@ -1445,6 +1838,40 @@ public final class AllomancyManager {
             blockEntityExtraTicks.remove(be);
         }
 
+        outsideBendalloyBlocks.removeAll(insideBendalloyBlocks);
+        for (BlockEntity be : insideBendalloyBlocks) {
+            blockEntitySlowFactors.remove(be);
+        }
+
+        // Apply slowdown logic for Bendalloy block entities
+        for (BlockEntity be : outsideBendalloyBlocks) {
+            if (be.isRemoved())
+                continue;
+            try {
+                double slowFactor = blockEntitySlowFactors.getOrDefault(be, 8.0D);
+                tickSlowedBlockEntity(be, slowFactor, level);
+            } catch (Exception e) {
+                // Prevent any block-specific tick crashes from taking down the server
+            }
+        }
+
+        // Clean up block entity dilation data map for positions no longer slowed
+        java.util.Iterator<BlockPos> blockIterator = DILATED_BLOCK_ENTITIES.keySet().iterator();
+        while (blockIterator.hasNext()) {
+            BlockPos pos = blockIterator.next();
+            boolean stillSlowed = false;
+            for (BlockEntity be : outsideBendalloyBlocks) {
+                if (be.getBlockPos().equals(pos)) {
+                    stillSlowed = true;
+                    break;
+                }
+            }
+            if (!stillSlowed) {
+                blockIterator.remove();
+            }
+        }
+
+        // Process remaining Cadmium block entities
         for (BlockEntity be : outsideCadmiumBlocks) {
             if (be.isRemoved())
                 continue;
@@ -1528,7 +1955,7 @@ public final class AllomancyManager {
                 true);
     }
 
-    private static double getProjectileGravity(Entity entity) {
+    public static double getProjectileGravity(Entity entity) {
         if (entity.isNoGravity()) {
             return 0.0D;
         }
@@ -1553,7 +1980,7 @@ public final class AllomancyManager {
         return 0.0D;
     }
 
-    private static double getProjectileDrag(Entity entity) {
+    public static double getProjectileDrag(Entity entity) {
         if (entity instanceof net.minecraft.world.entity.projectile.AbstractArrow) {
             return 0.99D;
         }

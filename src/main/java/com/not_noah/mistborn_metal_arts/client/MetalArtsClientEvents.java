@@ -200,6 +200,16 @@ public final class MetalArtsClientEvents {
         }
     }
 
+    public record AtiumPrediction(double[] px, double[] py, double[] pz, long tickReceived) {}
+    public static final java.util.Map<Integer, AtiumPrediction> ATIUM_PREDICTIONS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public static void handleAtiumShadowsSync(int targetId, double[] px, double[] py, double[] pz) {
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player != null) {
+            ATIUM_PREDICTIONS.put(targetId, new AtiumPrediction(px, py, pz, player.tickCount));
+        }
+    }
+
     @Mod.EventBusSubscriber(modid = MistbornMetalArts.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
     public static final class ForgeClientEvents {
         private ForgeClientEvents() {
@@ -749,6 +759,9 @@ public final class MetalArtsClientEvents {
             // Render Electrum Future Shadow
             renderElectrumShadow(event, player, camPos, poseStack);
 
+            // Render Atium Future Shadows
+            renderAtiumFutureShadows(event, player, camPos, poseStack);
+
             boolean iron = ClientMetalArtsData.data().isBurning(Metal.IRON);
             boolean steel = ClientMetalArtsData.data().isBurning(Metal.STEEL);
             if (!iron && !steel) {
@@ -1031,6 +1044,149 @@ public final class MetalArtsClientEvents {
                 
                 poseStack.popPose();
             }
+        }
+
+        private static void renderAtiumFutureShadows(RenderLevelStageEvent event, LocalPlayer player, Vec3 camPos, PoseStack poseStack) {
+            if (!ClientMetalArtsData.data().isBurning(Metal.ATIUM)) {
+                ATIUM_PREDICTIONS.clear();
+                return;
+            }
+
+            long currentTick = player.tickCount;
+            // Clean up old entries
+            ATIUM_PREDICTIONS.entrySet().removeIf(entry -> currentTick - entry.getValue().tickReceived() > 20);
+
+            for (java.util.Map.Entry<Integer, AtiumPrediction> entry : ATIUM_PREDICTIONS.entrySet()) {
+                int targetId = entry.getKey();
+                Entity target = player.level().getEntity(targetId);
+                if (target == null || target == player) {
+                    continue;
+                }
+
+                // Check if target is either a living entity (must be alive) or a projectile
+                boolean isLiving = target instanceof LivingEntity;
+                if (isLiving && !target.isAlive()) {
+                    continue;
+                }
+
+                AtiumPrediction prediction = entry.getValue();
+                if (currentTick - prediction.tickReceived() > 10) {
+                    continue;
+                }
+
+                for (int i = 0; i < prediction.px().length; i++) {
+                    double px = prediction.px()[i];
+                    double py = prediction.py()[i];
+                    double pz = prediction.pz()[i];
+
+                    // Don't render if the predicted position is extremely close to the current target position
+                    Vec3 currentTargetPos = target.position();
+                    if (currentTargetPos.distanceToSqr(px, py, pz) < 0.04D) {
+                        continue;
+                    }
+
+                    // Decreasing alpha based on projection distance (50% vs 100%)
+                    float alpha = (i == 0) ? 0.35F : 0.18F;
+
+                    net.minecraft.client.renderer.entity.EntityRenderer<? super Entity> renderer = Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(target);
+                    if (renderer instanceof LivingEntityRenderer livingRenderer && target instanceof LivingEntity livingTarget) {
+                        LivingEntityRenderer lr = (LivingEntityRenderer) livingRenderer;
+                        poseStack.pushPose();
+                        
+                        double rx = px - camPos.x;
+                        double ry = py - camPos.y;
+                        double rz = pz - camPos.z;
+                        poseStack.translate(rx, ry, rz);
+                        
+                        // Align rotation with body rotation
+                        float yRot = livingTarget.getViewYRot(event.getPartialTick());
+                        poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180.0F - yRot));
+                        poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(180.0F));
+                        poseStack.translate(0, -livingTarget.getBbHeight(), 0);
+                        
+                        RenderType type = RenderType.entityTranslucent(lr.getTextureLocation(livingTarget));
+                        VertexConsumer buffer = Minecraft.getInstance().renderBuffers().bufferSource().getBuffer(type);
+                        
+                        lr.getModel().renderToBuffer(
+                            poseStack,
+                            buffer,
+                            15728880,
+                            LivingEntityRenderer.getOverlayCoords(livingTarget, 0.0F),
+                            0.0F, 0.0F, 0.0F, alpha
+                        );
+                        poseStack.popPose();
+                    } else {
+                        // Projectile or non-living: draw a small 3D translucent black box
+                        poseStack.pushPose();
+                        // Translate relative to camera position
+                        double rx = px - camPos.x;
+                        double ry = py - camPos.y;
+                        double rz = pz - camPos.z;
+                        
+                        Tesselator tesselator = Tesselator.getInstance();
+                        BufferBuilder bufferBuilder = tesselator.getBuilder();
+                        
+                        RenderSystem.enableBlend();
+                        RenderSystem.defaultBlendFunc();
+                        RenderSystem.disableCull();
+                        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+                        RenderSystem.disableDepthTest();
+                        
+                        bufferBuilder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+                        
+                        // Draw a small cube centered around (rx, ry, rz)
+                        double size = 0.15D;
+                        drawSmallCube(bufferBuilder, poseStack, rx, ry, rz, size, 0.0F, 0.0F, 0.0F, alpha);
+                        
+                        tesselator.end();
+                        RenderSystem.enableDepthTest();
+                        poseStack.popPose();
+                        RenderSystem.enableCull();
+                        RenderSystem.disableBlend();
+                    }
+                }
+            }
+        }
+
+        private static void drawSmallCube(BufferBuilder buffer, PoseStack poseStack, double x, double y, double z, double size, float r, float g, float b, float alpha) {
+            double min = -size;
+            double max = size;
+            
+            // South Face
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + min), (float)(z + max)).color(r, g, b, alpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + min), (float)(z + max)).color(r, g, b, alpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + max), (float)(z + max)).color(r, g, b, alpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + max), (float)(z + max)).color(r, g, b, alpha).endVertex();
+            
+            // North Face
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + min), (float)(z + min)).color(r, g, b, alpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + max), (float)(z + min)).color(r, g, b, alpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + max), (float)(z + min)).color(r, g, b, alpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + min), (float)(z + min)).color(r, g, b, alpha).endVertex();
+            
+            // East Face
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + min), (float)(z + min)).color(r, g, b, alpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + max), (float)(z + min)).color(r, g, b, alpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + max), (float)(z + max)).color(r, g, b, alpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + min), (float)(z + max)).color(r, g, b, alpha).endVertex();
+            
+            // West Face
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + min), (float)(z + min)).color(r, g, b, alpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + min), (float)(z + max)).color(r, g, b, alpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + max), (float)(z + max)).color(r, g, b, alpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + max), (float)(z + min)).color(r, g, b, alpha).endVertex();
+            
+            // Top Face
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + max), (float)(z + min)).color(r, g, b, alpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + max), (float)(z + max)).color(r, g, b, alpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + max), (float)(z + max)).color(r, g, b, alpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + max), (float)(z + min)).color(r, g, b, alpha).endVertex();
+            
+            // Bottom Face
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + min), (float)(z + min)).color(r, g, b, alpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + min), (float)(z + min)).color(r, g, b, alpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + max), (float)(y + min), (float)(z + max)).color(r, g, b, alpha).endVertex();
+            buffer.vertex(poseStack.last().pose(), (float)(x + min), (float)(y + min), (float)(z + max)).color(r, g, b, alpha).endVertex();
         }
 
         private static void addBillboardedBeam(BufferBuilder buffer, PoseStack poseStack, Vec3 start, Vec3 end, Vec3 camPos, double baseWidth, float r, float g, float b, float alpha) {
